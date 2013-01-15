@@ -476,13 +476,13 @@ var socket = function (options) {
     var remoteCalls = rpcManager.remoteCalls;
 
     remoteCalls.handshake(function(err, response){
-      console.log(response);
+      console.log("handshake");
 
       remoteCalls.auth(function(err, response){
-        console.log(response);
+        console.log("auth");
 
         remoteCalls.createActivity(function(err, response){
-          console.log(response);
+          console.log("createActivity");
         });
 
       });
@@ -2867,12 +2867,13 @@ require.define("/lib/rpc/RpcManager.js",function(require,module,exports,__dirnam
 var cidCount = 0;
 var requests = {};
 
+// Constructor function
 function rpcManager (options) {
   rpcManager.$.remoteCalls = RemoteCalls({sock:options.sock, rpcManager:rpcManager.$});
   return rpcManager.$;
 }
 
-// Constructor function
+
 rpcManager.$ = {
   TIMEOUT: 3000,
   generateCid : function () {
@@ -2949,7 +2950,6 @@ require.define("/lib/rpc/RemoteCalls.js",function(require,module,exports,__dirna
   return remoteCalls.$;
 }
 
-
 remoteCalls.$ = { 
   rpcManager: {},
   sock: {},
@@ -2987,7 +2987,7 @@ remoteCalls.$ = {
 
     this.rpcManager.makeRequest(msg, this.sock, callback);
   },
-  
+
   createActivity: function (callback){
     var msg = {
           a: 'create',
@@ -2999,7 +2999,7 @@ remoteCalls.$ = {
             userAgent: 'browser angent', // TODO: logic to know wich browser is doing the request
             connection: 'Wi-Fi', //TODO: check if this is aplicable
             contentType: 'application/json',
-            activityId: 'activityId' // optional and only for debugging purposes for now
+            activityId: 'activityId2' // optional and only for debugging purposes for now
           }
         };
 
