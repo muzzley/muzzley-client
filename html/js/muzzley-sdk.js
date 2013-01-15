@@ -462,7 +462,7 @@ require.define("/node_modules/domready/ready.js",function(require,module,exports
 
 require.define("/lib/rpc/socket.js",function(require,module,exports,__dirname,__filename,process,global){var sockjs = require('sockjs-client');
 var RpcManager = require('./RpcManager');
-
+var rpcManager;
 
 
 // Constructor function
@@ -472,7 +472,9 @@ var socket = function (options) {
   self.sock = sockjs('http://localhost:9292/ws');
 
   this.sock.onopen = function() {
-    var remoteCalls = new RpcManager.remoteCalls({rpcManager:RpcManager, sock:self.sock});
+    rpcManager = new RpcManager({sock:self.sock});
+    var remoteCalls = rpcManager.remoteCalls;
+
     remoteCalls.handshake(function(err, response){
       console.log(response);
 
@@ -513,7 +515,7 @@ var socket = function (options) {
     }
 
     if (message.h.t  === MESSAGE_TYPE_RESPONSE){
-        RpcManager.handleResponse(message);
+        rpcManager.handleResponse(message);
     }
 
 
@@ -2860,15 +2862,19 @@ if (typeof module === 'object' && module && module.exports) {
 
 });
 
-require.define("/lib/rpc/RpcManager.js",function(require,module,exports,__dirname,__filename,process,global){var rpc = require('./RpcCalls');
+require.define("/lib/rpc/RpcManager.js",function(require,module,exports,__dirname,__filename,process,global){var RemoteCalls = require('./RemoteCalls');
 
 var cidCount = 0;
 var requests = {};
 
+function rpcManager (options) {
+  rpcManager.$.remoteCalls = RemoteCalls({sock:options.sock, rpcManager:rpcManager.$});
+  return rpcManager.$;
+}
+
 // Constructor function
-var RpcManager = {
+rpcManager.$ = {
   TIMEOUT: 3000,
-  remoteCalls: rpc,
   generateCid : function () {
     return ++cidCount;
   },
@@ -2932,11 +2938,11 @@ var RpcManager = {
   }
 };
 
-module.exports = RpcManager;
+module.exports = rpcManager;
 
 });
 
-require.define("/lib/rpc/RpcCalls.js",function(require,module,exports,__dirname,__filename,process,global){function remoteCalls (options) {
+require.define("/lib/rpc/RemoteCalls.js",function(require,module,exports,__dirname,__filename,process,global){function remoteCalls (options) {
   options = options || {};
   remoteCalls.$.sock = options.sock;
   remoteCalls.$.rpcManager = options.rpcManager;
