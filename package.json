@@ -1,0 +1,13 @@
+{
+  "name": "muzzley-sdk",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "browserify": "*",
+    "ecstatic": "*",
+    
+    "sockjs-client" : "git://github.com/substack/sockjs-client.git#browserify-npm",
+    "domready":"*",
+    "sockjs":"*"
+  }
+}
