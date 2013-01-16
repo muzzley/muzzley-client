@@ -5,6 +5,7 @@
   "dependencies": {
     "browserify": "*",
     "ecstatic": "*",
+    "uglify-js": "*",
     
     "sockjs-client" : "git://github.com/substack/sockjs-client.git#browserify-npm",
     "domready":"*",
