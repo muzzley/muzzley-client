@@ -3,7 +3,21 @@
   <head>
     <script src="js/muzzley-sdk.js"></script>
     <script>
-      require('/lib/main');
+      var muzzley = require('/lib/main');
+      muzzley.connect('token1', function(activity){
+
+        activity.on('participantJoin', function(participant) {
+
+          
+          console.log(participant)
+          
+          participant.changeWidget(function(err, msg){
+            console.log(msg);
+          });
+          
+        });
+
+      });
     </script>
   </head>
   <body>
