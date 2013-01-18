@@ -505,8 +505,8 @@ util.inherits(Participant, EventEmitter);
 var socket = function (token, callback) {
   //TODO Something with options
   var self = this;
-  self.sock = sockjs('http://localhost:9292/ws');
-  //self.sock = sockjs('http://muzzley.com:9292/ws');
+  //self.sock = sockjs('http://localhost:9292/ws');
+  self.sock = sockjs('http://muzzley.com:9292/ws');
 
   this.sock.onopen = function() {
     rpcManager = new RpcManager({sock:self.sock});
@@ -520,7 +520,7 @@ var socket = function (token, callback) {
 
         remoteCalls.createActivity(function(err, response){
           console.log("createActivity");
-          console.log(response.d);
+          //console.log(response.d);
 
           var activity = {
             activityId: response.d.activityId,
@@ -538,9 +538,9 @@ var socket = function (token, callback) {
   };
 
   this.sock.onmessage = function(e) {
-    console.log("Message/Response received:");
+    //console.log("Message/Response received:");
     var message = e.data;
-    console.log(message);
+    //console.log(message);
 
     if (typeof message !== 'object') {
       try {
@@ -557,6 +557,19 @@ var socket = function (token, callback) {
     var MESSAGE_TYPE_RESPONSE_CORE = 4;
     var MESSAGE_TYPE_SIGNAL = 5;
 
+ 
+    if (message.h.t  === MESSAGE_TYPE_SIGNAL){
+      participants.forEach(function(participant){
+        if (participant.userId === message.h.pid){
+          participant.emit('action', message.d);
+        }
+      });
+    }
+
+    if (message.h.t  === MESSAGE_TYPE_RESPONSE){
+      return rpcManager.handleResponse(message);
+    }
+
     if (message.h.t  === MESSAGE_TYPE_REQUEST_CORE){
       if (message.a ==='participantJoined'){
         var participant  = new Participant(
@@ -570,9 +583,6 @@ var socket = function (token, callback) {
       }
     }
 
-    if (message.h.t  === MESSAGE_TYPE_RESPONSE){
-      return rpcManager.handleResponse(message);
-    }
 
     if (message.h.t  === MESSAGE_TYPE_REQUEST){
       if (message.a ==='signal'){
@@ -3069,8 +3079,8 @@ remoteCalls.$ = {
             lib: 'js',
             userAgent: 'browser angent', // TODO: logic to know wich browser is doing the request
             connection: 'Wi-Fi', //TODO: check if this is aplicable
-            contentType: 'application/json',
-            activityId: 'activityId2' // optional and only for debugging purposes for now
+            contentType: 'application/json'
+            //activityId: 'activityId2' // optional and only for debugging purposes for now
           }
         };
 
@@ -3093,9 +3103,9 @@ remoteCalls.$ = {
       },
       a: 'signal',
       d: {
-        action: 'changeWidget',
+        a: 'changeWidget',
         d:{
-            widgetName: 'gamepad',
+            widget: 'gamepad',
             backgroundImage: 'http://www.muzzley.com/images/image1.png',
             numButtons: 4
           }
