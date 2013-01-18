@@ -7,11 +7,11 @@
       muzzley.connect('token1', function(activity){
 
         activity.on('participantJoin', function(participant) {
-
           
           console.log(participant)
-          
+
           participant.changeWidget(function(err, msg){
+            console.log(err);
             console.log(msg);
           });
           

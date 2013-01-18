@@ -506,6 +506,7 @@ var socket = function (token, callback) {
   //TODO Something with options
   var self = this;
   self.sock = sockjs('http://localhost:9292/ws');
+  //self.sock = sockjs('http://muzzley.com:9292/ws');
 
   this.sock.onopen = function() {
     rpcManager = new RpcManager({sock:self.sock});
@@ -519,7 +520,7 @@ var socket = function (token, callback) {
 
         remoteCalls.createActivity(function(err, response){
           console.log("createActivity");
-          console.log(response.d.activityId);
+          console.log(response.d);
 
           var activity = {
             activityId: response.d.activityId,
@@ -537,9 +538,9 @@ var socket = function (token, callback) {
   };
 
   this.sock.onmessage = function(e) {
-    //console.log("Message/Response received:");
+    console.log("Message/Response received:");
     var message = e.data;
-    //console.log(message);
+    console.log(message);
 
     if (typeof message !== 'object') {
       try {
@@ -559,7 +560,7 @@ var socket = function (token, callback) {
     if (message.h.t  === MESSAGE_TYPE_REQUEST_CORE){
       if (message.a ==='participantJoined'){
         var participant  = new Participant(
-                                    message.d.participant.userId,
+                                    message.d.participant.id,
                                     message.d.participant.name,
                                     message.d.participant.photoUrl
                                   );
@@ -3081,6 +3082,7 @@ remoteCalls.$ = {
       h: {t: type, cid: cid, pid: pid},
       s: true
     };
+    console.log(msg);
     this.sock.send(JSON.stringify(msg));
   },
 
@@ -3092,20 +3094,14 @@ remoteCalls.$ = {
       a: 'signal',
       d: {
         action: 'changeWidget',
-        d: [
-          {
+        d:{
             widgetName: 'gamepad',
-            backgroundImage: 'http://www.muzzley.com/images/image1.png',
-            numButtons: 3
-          },
-          {
-            widgetName: 'otherWidget',
             backgroundImage: 'http://www.muzzley.com/images/image1.png',
             numButtons: 4
           }
-        ]
       }
     };
+    console.log(msg);
     this.rpcManager.makeRequest(msg, this.sock, callback);
   }
 };
