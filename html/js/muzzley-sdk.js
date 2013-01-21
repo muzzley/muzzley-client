@@ -3053,7 +3053,7 @@ remoteCalls.$ = {
 
   auth: function (token, callback){
     var msg = {
-          a: 'login',
+          a: 'loginApp',
           d: {
             // Mandatory
             protocolVersion: '1.0',
