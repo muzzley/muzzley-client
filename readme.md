@@ -15,8 +15,8 @@ include the muzzley sdk on you site:
 
     <script src="js/muzzley-sdk.js"></script>
 
-you are ready to go:
-    <script>
+then inside another `<script>` tag your are ready to use the lib:
+
       var muzzley = require('/lib/main');
       // Connect to muzzley server with your token
       muzzley.connect('token1', function(activity){
@@ -45,10 +45,17 @@ you are ready to go:
           });
         });
       });
-    </script>
 
 ## How to modify the code:
 
-In the folder `./lib` you have the lib files the `main.js` is the app entry point and in the rpc dir is where all the magic appens.
-After you modify something you need to 'recompile' the code, for that you need to run `node index.js` and it will recompile the javascript file `./html/js/muzzley-sdk.js` and mount a http server running the library with the following adress: http://localhost:8081/index.html
+In the folder `./lib` you have the lib files.
+The `main.js` is the app entry point.
+
+## Recompile
+
+After you modify something you need to 'recompile' the code, for that you need to run `node index.js` and it will recompile the javascript file `./html/js/muzzley-sdk.js` 
+
+### Test 
+when you run `node index.js` it also mounts an http server running the library with the following adress: 
+`http://localhost:8081/index.html`
 
