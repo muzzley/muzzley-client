@@ -1,12 +1,106 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <link rel="stylesheet", href="/css/documentation.css"></link>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
     <script src="js/muzzley-sdk.js"></script>
     <script>
-      require('/lib/main');
+      var muzzley = require('/lib/main');
+      muzzley.connect('wwtbam741', function(activity){
+        console.log(activity);
+
+        // Create qrCode image
+        $('<img />', { 'src': activity.qrCodeUrl, 'style':'width:300px'}).appendTo('#qrCodeImg');
+        $('<p />', {html: "Up and running."}).appendTo('#logs');
+        $('<p />', {html: "Wating players to join..."}).appendTo('#logs');
+
+        activity.on('participantJoin', function(participant) {
+          console.log(participant);
+          $('<p />', {html: "Player Joined"}).appendTo('#logs');
+          $('<p />', {html: "Player Name: " + participant.name}).appendTo('#logs');
+
+          participant.changeWidget(function(err){
+            participant.on('action', function(action) {
+              var logmsg = "Player (" + participant.name + ") did the fowllowing action => "
+              logmsg += "Event: " + action.e + " controller: " + action.c + " value: " + action.v
+              $('<p />', {html: logmsg}).appendTo('#logs');
+              console.log(action);
+              $("#logs").scrollTop($("#logs")[0].scrollHeight);
+            });
+
+          });
+          
+        });
+
+      });
     </script>
+    <style>
+      body{
+        padding:5px;
+      }
+
+      #qrCodeImg{
+        float:left;
+      }
+      #docs{
+        width: 620px; 
+        margin-left:100px;
+        float:left;
+      }
+      #logs { 
+        padding:3px;
+        clear:left;
+        font-family:helvetica;
+        overflow: auto; 
+        max-height: 200px; 
+        background: black; 
+        color:grey;
+      }
+    </style>
   </head>
   <body>
-    weee
+    
+    <div id="qrCodeImg">
+      <h3>Muzzley JavaScript SDK Demo</h3>
+    </div>
+
+    <div id="docs">
+      <h3>Docs:</h3>
+      <pre><code>
+        var muzzley = require('/lib/main');
+        // Connect to muzzley server with your token
+        muzzley.connect('token1', function(activity){
+
+          // you get a activity object with all activity settings
+          console.log(activity); 
+
+          // You start listening for the 'participantJoin' Event
+          activity.on('participantJoin', function(participant) {
+
+            // You get a participant object with all participant settings
+            console.log(participant); 
+
+            // You need tell the participant to transform into some widget
+            participant.changeWidget(function(err){
+
+              // If you get no err then you can start listening for participant actions
+              if (!err){
+
+                // Start listening for the "action" Events
+                participant.on('action', function(action) {
+                  // Action object represents the participants interaction
+                  console.log(action);
+                });
+              }
+            });
+          });
+        });
+      </code></pre>
+    </div>
+
+    <div id="logs">
+
+    </div>
+
   </body>
 </html>
