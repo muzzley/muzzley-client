@@ -2,6 +2,7 @@
   "name": "muzzley-sdk",
   "version": "0.0.1",
   "private": true,
+  "main": "lib/main.js",
   "dependencies": {
     "browserify": "*",
     "ecstatic": "*",
