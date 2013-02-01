@@ -19,7 +19,7 @@
           $('<p />', {html: "Player Joined"}).appendTo('#logs');
           $('<p />', {html: "Player Name: " + participant.name}).appendTo('#logs');
 
-          participant.changeWidget(function(err){
+          participant.changeWidget('gamepad', function(err){
             participant.on('action', function(action) {
               var logmsg = "Player (" + participant.name + ") did the fowllowing action => "
               logmsg += "Event: " + action.e + " controller: " + action.c + " value: " + action.v

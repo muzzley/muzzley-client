@@ -331,6 +331,47 @@ exports.extname = function(path) {
   return splitPathRe.exec(path)[3] || '';
 };
 
+exports.relative = function(from, to) {
+  from = exports.resolve(from).substr(1);
+  to = exports.resolve(to).substr(1);
+
+  function trim(arr) {
+    var start = 0;
+    for (; start < arr.length; start++) {
+      if (arr[start] !== '') break;
+    }
+
+    var end = arr.length - 1;
+    for (; end >= 0; end--) {
+      if (arr[end] !== '') break;
+    }
+
+    if (start > end) return [];
+    return arr.slice(start, end - start + 1);
+  }
+
+  var fromParts = trim(from.split('/'));
+  var toParts = trim(to.split('/'));
+
+  var length = Math.min(fromParts.length, toParts.length);
+  var samePartsLength = length;
+  for (var i = 0; i < length; i++) {
+    if (fromParts[i] !== toParts[i]) {
+      samePartsLength = i;
+      break;
+    }
+  }
+
+  var outputParts = [];
+  for (var i = samePartsLength; i < fromParts.length; i++) {
+    outputParts.push('..');
+  }
+
+  outputParts = outputParts.concat(toParts.slice(samePartsLength));
+
+  return outputParts.join('/');
+};
+
 });
 
 require.define("__browserify_process",function(require,module,exports,__dirname,__filename,process,global){var process = module.exports = {};
@@ -494,8 +535,8 @@ var Participant = function(userId, name, photoUrl){
   self.name= name;
   self.photoUrl= photoUrl;
   self.rpcManager= rpcManager,
-  self.changeWidget = function(callback) {
-    self.rpcManager.remoteCalls.changeWidget(self.userId, callback);
+  self.changeWidget = function(widget, callback) {
+    self.rpcManager.remoteCalls.changeWidget(widget, self.userId, callback);
    };
 };
 
@@ -505,8 +546,8 @@ util.inherits(Participant, EventEmitter);
 var socket = function (token, callback) {
   //TODO Something with options
   var self = this;
-  //self.sock = sockjs('http://localhost:9292/ws');
-  self.sock = sockjs('http://sandbox-lx01.lab.muzzley.com:9292/ws');
+  self.sock = sockjs('http://localhost:9292/web');
+  //self.sock = sockjs('http://platform.lab.muzzley.com/web');
 
   this.sock.onopen = function() {
     rpcManager = new RpcManager({sock:self.sock});
@@ -520,7 +561,7 @@ var socket = function (token, callback) {
 
         remoteCalls.createActivity(function(err, response){
           console.log("createActivity");
-          //console.log(response.d);
+          console.log(response.d);
 
           var activity = {
             activityId: response.d.activityId,
@@ -3071,18 +3112,13 @@ remoteCalls.$ = {
 
   createActivity: function (callback){
     var msg = {
-          a: 'create',
-          d: {
-            // Mandatory
-            protocolVersion: '1.0',
-            // All the following are optional and experimental
-            lib: 'js',
-            userAgent: 'browser angent', // TODO: logic to know wich browser is doing the request
-            connection: 'Wi-Fi', //TODO: check if this is aplicable
-            contentType: 'application/json'
-            //activityId: 'activityId2' // optional and only for debugging purposes for now
-          }
-        };
+      a: 'create',
+      d: {
+        protocolVersion: '1.0',
+        lib: 'js',
+        libVersion: '0.1'
+      }
+    };
 
     this.rpcManager.makeRequest(msg, this.sock, callback);
   },
@@ -3096,7 +3132,7 @@ remoteCalls.$ = {
     this.sock.send(JSON.stringify(msg));
   },
 
-  changeWidget: function (pid, callback){
+  changeWidget: function (widget, pid, callback){
     var msg = {
       h: {
         pid: pid
@@ -3105,10 +3141,8 @@ remoteCalls.$ = {
       d: {
         a: 'changeWidget',
         d:{
-            widget: 'gamepad',
-            backgroundImage: 'http://www.muzzley.com/images/image1.png',
-            numButtons: 4
-          }
+          widget: widget
+        }
       }
     };
     console.log(msg);

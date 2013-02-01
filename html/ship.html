@@ -46,7 +46,7 @@ var muzzley = require('/lib/main');
         activity.on('participantJoin', function(participant) {
           console.log(participant);
 
-          participant.changeWidget(function(err){
+          participant.changeWidget('gamepad', function(err){
             participant.on('action', function(action) {
               console.log(action);
               console.log(rotateLeft);
