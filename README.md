@@ -21,7 +21,7 @@ then inside another `<script>` tag your are ready to use the lib:
       // Connect to muzzley server with your token
       muzzley.connect('token1', function(activity){
 
-        // you get a activity object with all activity settings
+        // You get a activity object with all activity settings
         console.log(activity); 
 
         // You start listening for the 'participantJoin' Event
@@ -31,7 +31,8 @@ then inside another `<script>` tag your are ready to use the lib:
           console.log(participant); 
 
           // You need tell the participant to transform into some widget
-          participant.changeWidget(function(err){
+          // In this case we'll use the Gamepad widget
+          participant.changeWidget('gamepad', function(err){
 
             // If you get no err then you can start listening for participant actions
             if (!err){
