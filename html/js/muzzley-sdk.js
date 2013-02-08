@@ -546,7 +546,7 @@ util.inherits(Participant, EventEmitter);
 var socket = function (token, callback) {
   //TODO Something with options
   var self = this;
-  self.sock = sockjs('http://localhost:9292/web');
+  self.sock = sockjs('http://platform.muzzley.com/web');
   //self.sock = sockjs('http://platform.lab.muzzley.com/web');
 
   this.sock.onopen = function() {

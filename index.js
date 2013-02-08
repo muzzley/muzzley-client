@@ -14,7 +14,18 @@ var js = browserify({
 
 fs.writeFile(__dirname + '/html/js/muzzley-sdk.js', js.bundle(), function (err) {
   if (err) throw err;
-  console.log('It\'s saved! and ready to use on: ' + __dirname + 'html/js/muzzley-sdk.js');
+  console.log('It\'s saved! and ready to use on: ' + __dirname + '/html/js/muzzley-sdk.js');
+});
+
+var jsMin = browserify({
+  watch: true,
+  require: __dirname + '/lib/main.js',
+  filter : require('uglify-js')
+});
+
+fs.writeFile(__dirname + '/html/js/muzzley-sdk.min.js', jsMin.bundle(), function (err) {
+  if (err) throw err;
+  console.log('It\'s saved! and ready to use on: ' + __dirname + '/html/js/muzzley-sdk.min.js');
 });
 
 var server = http.createServer(

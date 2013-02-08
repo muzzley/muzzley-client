@@ -6,8 +6,7 @@
   "dependencies": {
     "browserify": "*",
     "ecstatic": "*",
-    "uglify-js": "*",
-    
+    "uglify-js":"1.3.4",
     "sockjs-client" : "git://github.com/substack/sockjs-client.git#browserify-npm",
     "domready":"*",
     "sockjs":"*"
