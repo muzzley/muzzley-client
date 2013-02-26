@@ -1,664 +1,4 @@
-var require = function (file, cwd) {
-    var resolved = require.resolve(file, cwd || '/');
-    var mod = require.modules[resolved];
-    if (!mod) throw new Error(
-        'Failed to resolve module ' + file + ', tried ' + resolved
-    );
-    var cached = require.cache[resolved];
-    var res = cached? cached.exports : mod();
-    return res;
-};
-
-require.paths = [];
-require.modules = {};
-require.cache = {};
-require.extensions = [".js",".coffee",".json"];
-
-require._core = {
-    'assert': true,
-    'events': true,
-    'fs': true,
-    'path': true,
-    'vm': true
-};
-
-require.resolve = (function () {
-    return function (x, cwd) {
-        if (!cwd) cwd = '/';
-        
-        if (require._core[x]) return x;
-        var path = require.modules.path();
-        cwd = path.resolve('/', cwd);
-        var y = cwd || '/';
-        
-        if (x.match(/^(?:\.\.?\/|\/)/)) {
-            var m = loadAsFileSync(path.resolve(y, x))
-                || loadAsDirectorySync(path.resolve(y, x));
-            if (m) return m;
-        }
-        
-        var n = loadNodeModulesSync(x, y);
-        if (n) return n;
-        
-        throw new Error("Cannot find module '" + x + "'");
-        
-        function loadAsFileSync (x) {
-            x = path.normalize(x);
-            if (require.modules[x]) {
-                return x;
-            }
-            
-            for (var i = 0; i < require.extensions.length; i++) {
-                var ext = require.extensions[i];
-                if (require.modules[x + ext]) return x + ext;
-            }
-        }
-        
-        function loadAsDirectorySync (x) {
-            x = x.replace(/\/+$/, '');
-            var pkgfile = path.normalize(x + '/package.json');
-            if (require.modules[pkgfile]) {
-                var pkg = require.modules[pkgfile]();
-                var b = pkg.browserify;
-                if (typeof b === 'object' && b.main) {
-                    var m = loadAsFileSync(path.resolve(x, b.main));
-                    if (m) return m;
-                }
-                else if (typeof b === 'string') {
-                    var m = loadAsFileSync(path.resolve(x, b));
-                    if (m) return m;
-                }
-                else if (pkg.main) {
-                    var m = loadAsFileSync(path.resolve(x, pkg.main));
-                    if (m) return m;
-                }
-            }
-            
-            return loadAsFileSync(x + '/index');
-        }
-        
-        function loadNodeModulesSync (x, start) {
-            var dirs = nodeModulesPathsSync(start);
-            for (var i = 0; i < dirs.length; i++) {
-                var dir = dirs[i];
-                var m = loadAsFileSync(dir + '/' + x);
-                if (m) return m;
-                var n = loadAsDirectorySync(dir + '/' + x);
-                if (n) return n;
-            }
-            
-            var m = loadAsFileSync(x);
-            if (m) return m;
-        }
-        
-        function nodeModulesPathsSync (start) {
-            var parts;
-            if (start === '/') parts = [ '' ];
-            else parts = path.normalize(start).split('/');
-            
-            var dirs = [];
-            for (var i = parts.length - 1; i >= 0; i--) {
-                if (parts[i] === 'node_modules') continue;
-                var dir = parts.slice(0, i + 1).join('/') + '/node_modules';
-                dirs.push(dir);
-            }
-            
-            return dirs;
-        }
-    };
-})();
-
-require.alias = function (from, to) {
-    var path = require.modules.path();
-    var res = null;
-    try {
-        res = require.resolve(from + '/package.json', '/');
-    }
-    catch (err) {
-        res = require.resolve(from, '/');
-    }
-    var basedir = path.dirname(res);
-    
-    var keys = (Object.keys || function (obj) {
-        var res = [];
-        for (var key in obj) res.push(key);
-        return res;
-    })(require.modules);
-    
-    for (var i = 0; i < keys.length; i++) {
-        var key = keys[i];
-        if (key.slice(0, basedir.length + 1) === basedir + '/') {
-            var f = key.slice(basedir.length);
-            require.modules[to + f] = require.modules[basedir + f];
-        }
-        else if (key === basedir) {
-            require.modules[to] = require.modules[basedir];
-        }
-    }
-};
-
-(function () {
-    var process = {};
-    var global = typeof window !== 'undefined' ? window : {};
-    var definedProcess = false;
-    
-    require.define = function (filename, fn) {
-        if (!definedProcess && require.modules.__browserify_process) {
-            process = require.modules.__browserify_process();
-            definedProcess = true;
-        }
-        
-        var dirname = require._core[filename]
-            ? ''
-            : require.modules.path().dirname(filename)
-        ;
-        
-        var require_ = function (file) {
-            var requiredModule = require(file, dirname);
-            var cached = require.cache[require.resolve(file, dirname)];
-
-            if (cached && cached.parent === null) {
-                cached.parent = module_;
-            }
-
-            return requiredModule;
-        };
-        require_.resolve = function (name) {
-            return require.resolve(name, dirname);
-        };
-        require_.modules = require.modules;
-        require_.define = require.define;
-        require_.cache = require.cache;
-        var module_ = {
-            id : filename,
-            filename: filename,
-            exports : {},
-            loaded : false,
-            parent: null
-        };
-        
-        require.modules[filename] = function () {
-            require.cache[filename] = module_;
-            fn.call(
-                module_.exports,
-                require_,
-                module_,
-                module_.exports,
-                dirname,
-                filename,
-                process,
-                global
-            );
-            module_.loaded = true;
-            return module_.exports;
-        };
-    };
-})();
-
-
-require.define("path",function(require,module,exports,__dirname,__filename,process,global){function filter (xs, fn) {
-    var res = [];
-    for (var i = 0; i < xs.length; i++) {
-        if (fn(xs[i], i, xs)) res.push(xs[i]);
-    }
-    return res;
-}
-
-// resolves . and .. elements in a path array with directory names there
-// must be no slashes, empty elements, or device names (c:\) in the array
-// (so also no leading and trailing slashes - it does not distinguish
-// relative and absolute paths)
-function normalizeArray(parts, allowAboveRoot) {
-  // if the path tries to go above the root, `up` ends up > 0
-  var up = 0;
-  for (var i = parts.length; i >= 0; i--) {
-    var last = parts[i];
-    if (last == '.') {
-      parts.splice(i, 1);
-    } else if (last === '..') {
-      parts.splice(i, 1);
-      up++;
-    } else if (up) {
-      parts.splice(i, 1);
-      up--;
-    }
-  }
-
-  // if the path is allowed to go above the root, restore leading ..s
-  if (allowAboveRoot) {
-    for (; up--; up) {
-      parts.unshift('..');
-    }
-  }
-
-  return parts;
-}
-
-// Regex to split a filename into [*, dir, basename, ext]
-// posix version
-var splitPathRe = /^(.+\/(?!$)|\/)?((?:.+?)?(\.[^.]*)?)$/;
-
-// path.resolve([from ...], to)
-// posix version
-exports.resolve = function() {
-var resolvedPath = '',
-    resolvedAbsolute = false;
-
-for (var i = arguments.length; i >= -1 && !resolvedAbsolute; i--) {
-  var path = (i >= 0)
-      ? arguments[i]
-      : process.cwd();
-
-  // Skip empty and invalid entries
-  if (typeof path !== 'string' || !path) {
-    continue;
-  }
-
-  resolvedPath = path + '/' + resolvedPath;
-  resolvedAbsolute = path.charAt(0) === '/';
-}
-
-// At this point the path should be resolved to a full absolute path, but
-// handle relative paths to be safe (might happen when process.cwd() fails)
-
-// Normalize the path
-resolvedPath = normalizeArray(filter(resolvedPath.split('/'), function(p) {
-    return !!p;
-  }), !resolvedAbsolute).join('/');
-
-  return ((resolvedAbsolute ? '/' : '') + resolvedPath) || '.';
-};
-
-// path.normalize(path)
-// posix version
-exports.normalize = function(path) {
-var isAbsolute = path.charAt(0) === '/',
-    trailingSlash = path.slice(-1) === '/';
-
-// Normalize the path
-path = normalizeArray(filter(path.split('/'), function(p) {
-    return !!p;
-  }), !isAbsolute).join('/');
-
-  if (!path && !isAbsolute) {
-    path = '.';
-  }
-  if (path && trailingSlash) {
-    path += '/';
-  }
-  
-  return (isAbsolute ? '/' : '') + path;
-};
-
-
-// posix version
-exports.join = function() {
-  var paths = Array.prototype.slice.call(arguments, 0);
-  return exports.normalize(filter(paths, function(p, index) {
-    return p && typeof p === 'string';
-  }).join('/'));
-};
-
-
-exports.dirname = function(path) {
-  var dir = splitPathRe.exec(path)[1] || '';
-  var isWindows = false;
-  if (!dir) {
-    // No dirname
-    return '.';
-  } else if (dir.length === 1 ||
-      (isWindows && dir.length <= 3 && dir.charAt(1) === ':')) {
-    // It is just a slash or a drive letter with a slash
-    return dir;
-  } else {
-    // It is a full dirname, strip trailing slash
-    return dir.substring(0, dir.length - 1);
-  }
-};
-
-
-exports.basename = function(path, ext) {
-  var f = splitPathRe.exec(path)[2] || '';
-  // TODO: make this comparison case-insensitive on windows?
-  if (ext && f.substr(-1 * ext.length) === ext) {
-    f = f.substr(0, f.length - ext.length);
-  }
-  return f;
-};
-
-
-exports.extname = function(path) {
-  return splitPathRe.exec(path)[3] || '';
-};
-
-exports.relative = function(from, to) {
-  from = exports.resolve(from).substr(1);
-  to = exports.resolve(to).substr(1);
-
-  function trim(arr) {
-    var start = 0;
-    for (; start < arr.length; start++) {
-      if (arr[start] !== '') break;
-    }
-
-    var end = arr.length - 1;
-    for (; end >= 0; end--) {
-      if (arr[end] !== '') break;
-    }
-
-    if (start > end) return [];
-    return arr.slice(start, end - start + 1);
-  }
-
-  var fromParts = trim(from.split('/'));
-  var toParts = trim(to.split('/'));
-
-  var length = Math.min(fromParts.length, toParts.length);
-  var samePartsLength = length;
-  for (var i = 0; i < length; i++) {
-    if (fromParts[i] !== toParts[i]) {
-      samePartsLength = i;
-      break;
-    }
-  }
-
-  var outputParts = [];
-  for (var i = samePartsLength; i < fromParts.length; i++) {
-    outputParts.push('..');
-  }
-
-  outputParts = outputParts.concat(toParts.slice(samePartsLength));
-
-  return outputParts.join('/');
-};
-
-});
-
-require.define("__browserify_process",function(require,module,exports,__dirname,__filename,process,global){var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-        && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-        && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            if (ev.source === window && ev.data === 'browserify-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('browserify-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-process.binding = function (name) {
-    if (name === 'evals') return (require)('vm')
-    else throw new Error('No such module. (Possibly not yet loaded)')
-};
-
-(function () {
-    var cwd = '/';
-    var path;
-    process.cwd = function () { return cwd };
-    process.chdir = function (dir) {
-        if (!path) path = require('path');
-        cwd = path.resolve(dir, cwd);
-    };
-})();
-
-});
-
-require.define("/lib/main.js",function(require,module,exports,__dirname,__filename,process,global){var domready = require('domready');
-var socket = require('./rpc/socket.js');
-
-var muzzley = function(token, callback){
-  domready(function () {
-    socket(token, function(activity){
-      callback(activity);
-    });
-  });
-};
-
-
-module.exports.connect = muzzley;
-});
-
-require.define("/node_modules/domready/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"./ready.js"}
-});
-
-require.define("/node_modules/domready/ready.js",function(require,module,exports,__dirname,__filename,process,global){/*!
-  * domready (c) Dustin Diaz 2012 - License MIT
-  */
-!function (name, definition) {
-  if (typeof module != 'undefined') module.exports = definition()
-  else if (typeof define == 'function' && typeof define.amd == 'object') define(definition)
-  else this[name] = definition()
-}('domready', function (ready) {
-
-  var fns = [], fn, f = false
-    , doc = document
-    , testEl = doc.documentElement
-    , hack = testEl.doScroll
-    , domContentLoaded = 'DOMContentLoaded'
-    , addEventListener = 'addEventListener'
-    , onreadystatechange = 'onreadystatechange'
-    , readyState = 'readyState'
-    , loaded = /^loade|c/.test(doc[readyState])
-
-  function flush(f) {
-    loaded = 1
-    while (f = fns.shift()) f()
-  }
-
-  doc[addEventListener] && doc[addEventListener](domContentLoaded, fn = function () {
-    doc.removeEventListener(domContentLoaded, fn, f)
-    flush()
-  }, f)
-
-
-  hack && doc.attachEvent(onreadystatechange, fn = function () {
-    if (/^c/.test(doc[readyState])) {
-      doc.detachEvent(onreadystatechange, fn)
-      flush()
-    }
-  })
-
-  return (ready = hack ?
-    function (fn) {
-      self != top ?
-        loaded ? fn() : fns.push(fn) :
-        function () {
-          try {
-            testEl.doScroll('left')
-          } catch (e) {
-            return setTimeout(function() { ready(fn) }, 50)
-          }
-          fn()
-        }()
-    } :
-    function (fn) {
-      loaded ? fn() : fns.push(fn)
-    })
-})
-});
-
-require.define("/lib/rpc/socket.js",function(require,module,exports,__dirname,__filename,process,global){var sockjs = require('sockjs-client');
-var RpcManager = require('./RpcManager');
-var rpcManager;
-
-var util = require('util');
-var EventEmitter = require('events').EventEmitter;
-
-var actualActivity = Object.create(null);
-var participants = [];
-
-var Activity = function(activity) {
-
-  var self = this;
-  self.rpcManager = rpcManager;
-
-  self.activityId = activity.activityId;
-  self.qrCodeUrl = activity.qrCodeUrl;
-  
-
-};
-
-util.inherits(Activity, EventEmitter);
-
-var Participant = function(userId, name, photoUrl){
-  var self = this;
-  self.userId= userId;
-  self.name= name;
-  self.photoUrl= photoUrl;
-  self.rpcManager= rpcManager,
-  self.changeWidget = function(widget, callback) {
-    self.rpcManager.remoteCalls.changeWidget(widget, self.userId, callback);
-   };
-};
-
-util.inherits(Participant, EventEmitter);
-
-// Constructor function
-var socket = function (token, callback) {
-  //TODO Something with options
-  var self = this;
-  self.sock = sockjs('http://platform.muzzley.com/web');
-  //self.sock = sockjs('http://platform.lab.muzzley.com/web');
-
-  this.sock.onopen = function() {
-    rpcManager = new RpcManager({sock:self.sock});
-    var remoteCalls = rpcManager.remoteCalls;
-
-    remoteCalls.handshake(function(err, response){
-      console.log("handshake");
-
-      remoteCalls.auth(token, function(err, response){
-        console.log("auth");
-
-        remoteCalls.createActivity(function(err, response){
-          console.log("createActivity");
-          console.log(response.d);
-
-          var activity = {
-            activityId: response.d.activityId,
-            qrCodeUrl: response.d.qrCodeUrl
-          };
-
-          actualActivity = new Activity(activity);
-          callback(actualActivity);
-
-        });
-
-      });
-
-    });
-  };
-
-  this.sock.onmessage = function(e) {
-    //console.log("Message/Response received:");
-    var message = e.data;
-    //console.log(message);
-
-    if (typeof message !== 'object') {
-      try {
-        message = JSON.parse(message);
-      } catch (e) {
-        //console.log('Received an invalid non-JSON message. Ignoring.');
-        //console.log(e);
-        return;
-      }
-    }
-    var MESSAGE_TYPE_REQUEST = 1;
-    var MESSAGE_TYPE_RESPONSE = 2;
-    var MESSAGE_TYPE_REQUEST_CORE = 3;
-    var MESSAGE_TYPE_RESPONSE_CORE = 4;
-    var MESSAGE_TYPE_SIGNAL = 5;
-
- 
-    if (message.h.t  === MESSAGE_TYPE_SIGNAL){
-      participants.forEach(function(participant){
-        if (participant.userId === message.h.pid){
-          participant.emit('action', message.d);
-        }
-      });
-    }
-
-    if (message.h.t  === MESSAGE_TYPE_RESPONSE){
-      return rpcManager.handleResponse(message);
-    }
-
-    if (message.h.t  === MESSAGE_TYPE_REQUEST_CORE){
-      if (message.a ==='participantJoined'){
-        var participant  = new Participant(
-                                    message.d.participant.id,
-                                    message.d.participant.name,
-                                    message.d.participant.photoUrl
-                                  );
-
-        participants.push(participant);
-        return rpcManager.remoteCalls.successResponse(MESSAGE_TYPE_RESPONSE_CORE, message.h.cid, participant.userId);
-      }
-    }
-
-
-    if (message.h.t  === MESSAGE_TYPE_REQUEST){
-      if (message.a ==='signal'){
-        if (message.d.a === 'ready'){
-          participants.forEach(function(participant){
-            if (participant.userId === message.h.pid){
-              actualActivity.emit('participantJoin', participant);
-              return rpcManager.remoteCalls.successResponse(MESSAGE_TYPE_RESPONSE, message.h.cid, message.h.pid);
-            }
-          });
-          
-        }
-      }
-
-    }
-
-
-
-
-  };
-
-  this.sock.onclose   = function()  {
-    console.log("close");
-  };
-
-};
-
-module.exports = socket;
-
-});
-
-require.define("/node_modules/sockjs-client/package.json",function(require,module,exports,__dirname,__filename,process,global){module.exports = {"main":"sockjs.js"}
-});
-
-require.define("/node_modules/sockjs-client/sockjs.js",function(require,module,exports,__dirname,__filename,process,global){/* SockJS client, version 0.3.1.7.ga67f.dirty, http://sockjs.org, MIT License
+require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){(function(){/* SockJS client, version 0.3.4, http://sockjs.org, MIT License
 
 Copyright (c) 2011-2012 VMware, Inc.
 
@@ -687,7 +27,7 @@ var JSON;JSON||(JSON={}),function(){function str(a,b){var c,d,e,f,g=gap,h,i=b[a]
 
 //     [*] Including lib/index.js
 // Public object
-var SockJS = (function(){
+SockJS = (function(){
               var _document = document;
               var _window = window;
               var utils = {};
@@ -794,27 +134,53 @@ SimpleEvent.prototype.toString = function() {
  */
 
 var EventEmitter = function(events) {
-    this.events = events || [];
+    var that = this;
+    that._events = events || [];
+    that._listeners = {};
 };
 EventEmitter.prototype.emit = function(type) {
     var that = this;
+    that._verifyType(type);
+    if (that._nuked) return;
+
     var args = Array.prototype.slice.call(arguments, 1);
-    if (!that.nuked && that['on'+type]) {
+    if (that['on'+type]) {
         that['on'+type].apply(that, args);
     }
-    if (utils.arrIndexOf(that.events, type) === -1) {
+    if (type in that._listeners) {
+        for(var i = 0; i < that._listeners[type].length; i++) {
+            that._listeners[type][i].apply(that, args);
+        }
+    }
+};
+
+EventEmitter.prototype.on = function(type, callback) {
+    var that = this;
+    that._verifyType(type);
+    if (that._nuked) return;
+
+    if (!(type in that._listeners)) {
+        that._listeners[type] = [];
+    }
+    that._listeners[type].push(callback);
+};
+
+EventEmitter.prototype._verifyType = function(type) {
+    var that = this;
+    if (utils.arrIndexOf(that._events, type) === -1) {
         utils.log('Event ' + JSON.stringify(type) +
-                  ' not listed ' + JSON.stringify(that.events) +
+                  ' not listed ' + JSON.stringify(that._events) +
                   ' in ' + that);
     }
 };
 
-EventEmitter.prototype.nuke = function(type) {
+EventEmitter.prototype.nuke = function() {
     var that = this;
-    that.nuked = true;
-    for(var i=0; i<that.events.length; i++) {
-        delete that[that.events[i]];
+    that._nuked = true;
+    for(var i=0; i<that._events.length; i++) {
+        delete that[that._events[i]];
     }
+    that._listeners = {};
 };
 //         [*] End of lib/eventemitter.js
 
@@ -1224,9 +590,8 @@ var unload_triggered = function() {
     trigger_unload_callbacks();
 };
 
-// Onbeforeunload alone is not reliable. We could use only 'unload'
-// but it's not working in opera within an iframe. Let's use both.
-utils.attachEvent('beforeunload', unload_triggered);
+// 'unload' alone is not reliable in opera within an iframe, but we
+// can't use `beforeunload` as IE fires it on javascript: links.
 utils.attachEvent('unload', unload_triggered);
 
 utils.unload_add = function(listener) {
@@ -1420,13 +785,20 @@ AbstractXHRObject.prototype._start = function(method, url, payload, opts) {
                     var status = x.status;
                     var text = x.responseText;
                 } catch (x) {};
+                // IE returns 1223 for 204: http://bugs.jquery.com/ticket/1450
+                if (status === 1223) status = 204;
+
                 // IE does return readystate == 3 for 404 answers.
                 if (text && text.length > 0) {
                     that.emit('chunk', status, text);
                 }
                 break;
             case 4:
-                that.emit('finish', x.status, x.responseText);
+                var status = x.status;
+                // IE returns 1223 for 204: http://bugs.jquery.com/ticket/1450
+                if (status === 1223) status = 204;
+
+                that.emit('finish', status, x.responseText);
                 that._cleanup(false);
                 break;
             }
@@ -1562,7 +934,7 @@ utils.isXHRCorsCapable = function() {
  */
 
 var SockJS = function(url, dep_protocols_whitelist, options) {
-    if (this === window) {
+    if (this === _window) {
         // makes `new` optional
         return new SockJS(url, dep_protocols_whitelist, options);
     }
@@ -1618,7 +990,7 @@ var SockJS = function(url, dep_protocols_whitelist, options) {
 // Inheritance
 SockJS.prototype = new REventTarget();
 
-SockJS.version = "0.3.1.7.ga67f.dirty";
+SockJS.version = "0.3.4";
 
 SockJS.CONNECTING = 0;
 SockJS.OPEN = 1;
@@ -1843,7 +1215,7 @@ var WebSocketTransport = SockJS.websocket = function(ri, trans_url) {
         that.ri._didMessage(e.data);
     };
     // Firefox has an interesting bug. If a websocket connection is
-    // created after onbeforeunload, it stays alive even when user
+    // created after onunload, it stays alive even when user
     // navigates away from the page. In such situation let's lie -
     // let's not open the ws connection at all. See:
     // https://github.com/sockjs/sockjs-client/issues/28
@@ -1929,12 +1301,14 @@ BufferedSender.prototype.send_schedule = function() {
     var that = this;
     if (that.send_buffer.length > 0) {
         var payload = '[' + that.send_buffer.join(',') + ']';
-        that.send_stop = that.sender(that.trans_url,
-                                     payload,
-                                     function() {
-                                         that.send_stop = null;
-                                         that.send_schedule_wait();
-                                     });
+        that.send_stop = that.sender(that.trans_url, payload, function(success, abort_reason) {
+            that.send_stop = null;
+            if (success === false) {
+                that.ri._didClose(1006, 'Sending error ' + abort_reason);
+            } else {
+                that.send_schedule_wait();
+            }
+        });
         that.send_buffer = [];
     }
 };
@@ -1997,7 +1371,9 @@ var jsonPGenericSender = function(url, payload, callback) {
                        iframe = null;
                    });
         area.value = '';
-        callback();
+        // It is not possible to detect if the iframe succeeded or
+        // failed to submit our form.
+        callback(true);
     };
     iframe.onerror = iframe.onload = completed;
     iframe.onreadystatechange = function(e) {
@@ -2010,10 +1386,11 @@ var createAjaxSender = function(AjaxObject) {
     return function(url, payload, callback) {
         var xo = new AjaxObject('POST', url + '/xhr_send', payload);
         xo.onfinish = function(status, text) {
-            callback(status);
+            callback(status === 200 || status === 204,
+                     'http status ' + status);
         };
         return function(abort_reason) {
-            callback(0, abort_reason);
+            callback(false, abort_reason);
         };
     };
 };
@@ -2044,6 +1421,8 @@ var jsonPGenericReceiver = function(url, callback) {
         }
         if (script) {
             clearTimeout(tref);
+            // Unfortunately, you can't really abort script loading of
+            // the script.
             script.parentNode.removeChild(script);
             script.onreadystatechange = script.onerror =
                 script.onload = script.onclick = null;
@@ -2209,16 +1588,36 @@ JsonPTransport.prototype.doCleanup = function() {
 var jsonPReceiverWrapper = function(url, constructReceiver, user_callback) {
     var id = 'a' + utils.random_string(6);
     var url_id = url + '?c=' + escape(WPrefix + '.' + id);
+
+    // Unfortunately it is not possible to abort loading of the
+    // script. We need to keep track of frake close frames.
+    var aborting = 0;
+
     // Callback will be called exactly once.
     var callback = function(frame) {
-        delete _window[WPrefix][id];
-        user_callback(frame);
+        switch(aborting) {
+        case 0:
+            // Normal behaviour - delete hook _and_ emit message.
+            delete _window[WPrefix][id];
+            user_callback(frame);
+            break;
+        case 1:
+            // Fake close frame - emit but don't delete hook.
+            user_callback(frame);
+            aborting = 2;
+            break;
+        case 2:
+            // Got frame after connection was closed, delete hook, don't emit.
+            delete _window[WPrefix][id];
+            break;
+        }
     };
 
     var close_script = constructReceiver(url_id, callback);
     _window[WPrefix][id] = close_script;
     var stop = function() {
         if (_window[WPrefix][id]) {
+            aborting = 1;
             _window[WPrefix][id](utils.closeFrame(1000, "JSONP user aborted read"));
         }
     };
@@ -2608,7 +2007,8 @@ var createInfoReceiver = function(base_url) {
     }
     switch (utils.isXHRCorsCapable()) {
     case 1:
-        return new InfoReceiver(base_url, utils.XHRCorsObject);
+        // XHRLocalObject -> no_credentials=true
+        return new InfoReceiver(base_url, utils.XHRLocalObject);
     case 2:
         return new InfoReceiver(base_url, utils.XDRObject);
     case 3:
@@ -2973,717 +2373,226 @@ if ('_sockjs_onload' in window) setTimeout(_sockjs_onload, 1);
 if (typeof define === 'function' && define.amd) {
     define('sockjs', [], function(){return SockJS;});
 }
-
-if (typeof module === 'object' && module && module.exports) {
-    module.exports = SockJS;
-}
 //     [*] End of lib/index.js
 
 // [*] End of lib/all.js
-
-
-});
-
-require.define("/lib/rpc/RpcManager.js",function(require,module,exports,__dirname,__filename,process,global){var RemoteCalls = require('./RemoteCalls');
-
-var cidCount = 0;
-var requests = {};
-
-// Constructor function
-function rpcManager (options) {
-  rpcManager.$.remoteCalls = RemoteCalls({sock:options.sock, rpcManager:rpcManager.$});
-  return rpcManager.$;
+})()
+},{}],"./lib/remoteCalls.js":[function(require,module,exports){module.exports = require('xlROim');
+},{}],"xlROim":[function(require,module,exports){function remoteCalls (socket, rpcManager, options) {
+  // TODO implement options if passed
+  this.rpcManager = rpcManager;
+  this.socket = socket;
 }
 
 
-rpcManager.$ = {
-  TIMEOUT: 3000,
-  generateCid : function () {
-    return ++cidCount;
-  },
+remoteCalls.prototype.handShake = function(callback){
 
-  makeRequest : function (message, connection, responseCallback) {
-    var self = this;
-
-    // Generate a unique correlation id for this call
-    var correlationId = self.generateCid();
-
-    // TODO The timeout function should be unique
-    // Create a timeout for what should happen if we don't get a response
-    var tId = setTimeout(function (cid) {
-      // If this ever gets called we didn't get a response in a
-      // timely fashion
-      responseCallback(new Error("RPC Timeout @ cid " + cid));
-      // delete the entry from hash
-      delete requests[cid];
-    }, self.TIMEOUT, correlationId);
-
-    // create a request entry to store in a hash
-    var entry = {
-      callback: responseCallback,
-      timeout: tId //the id for the timeout so we can clear it
-    };
-
-    // Put the entry in the hash so we can match the response later
-    requests[correlationId] = entry;
-
-    var MESSAGE_TYPE_REQUEST = 1;
-    // Inject the Correlation Id into the message header
-    // and set the message type as REQUEST (if not already set).
-    message.h = message.h || {};
-    message.h.cid = correlationId;
-    message.h.t = message.h.t || MESSAGE_TYPE_REQUEST;
-
-    var sendingFunc = connection.send || connection.write;
-    if (typeof message === 'object') {
-      connection.send(JSON.stringify(message));
-    } else {
-      connection.send(message);
+  var msg = {
+    a: 'handshake',
+    d: {
+      // Mandatory
+      protocolVersion: '1.0',
+      // All the following are optional and experimental
+      lib: 'nodejs',
+      userAgent: 'muzzley-sdk-js',
+      connection: 'LAN',
+      contentType: 'application/json'
     }
-  },
-  
-  handleResponse: function (message) {
-    var self = this;
-   
-    if (!message || !message.h || typeof message.h.cid === 'undefined') {
-      // No Correlation Id defined, nothing to do here...
-      return;
-    }
+  };
 
-    var correlationId = message.h.cid;
+  this.rpcManager.makeRequest(msg, callback);
+};
 
-    if (correlationId in requests) {
-      var entry = requests[correlationId];
-      clearTimeout(entry.timeout);
-      delete requests[correlationId];
-      entry.callback(null, message);
+remoteCalls.prototype.auth = function (token, callback) {
+  var msg = {
+    'a': 'loginUser',
+    'd': {
+      'token': token
     }
+  };
+
+  this.rpcManager.makeRequest(msg, callback);
+};
+
+
+remoteCalls.prototype.createActivity = function (activityId, callback){
+  var msg = {
+    a: 'create',
+    d: {
+      protocolVersion: '1.0',
+      lib: 'js',
+      libVersion: '0.1',
+      activityId: activityId
+    }
+  };
+
+  this.rpcManager.makeRequest(msg, callback);
+};
+
+
+remoteCalls.prototype.changeWidget = function (widget, pid, callback){
+  var msg = {
+    h: {
+      pid: pid
+    },
+    a: 'signal',
+    d: {
+      a: 'changeWidget',
+      d:{
+        widget: widget
+      }
+    }
+  };
+  this.rpcManager.makeRequest(msg, this.sock, callback);
+};
+
+remoteCalls.prototype.joinActivity = function (activityId, callback) {
+  var msg = {
+    'a': 'join',
+    'd': {
+      'activityId': activityId
+    }
+  };
+  this.rpcManager.makeRequest(msg, this.ws, callback);
+};
+
+remoteCalls.prototype.sendReady = function (callback) {
+  var msg = {
+    'a': 'signal',
+    'd': {
+      'a': 'ready'
+    }
+  };
+
+  this.rpcManager.makeRequest(msg, this.ws, callback);
+};
+
+remoteCalls.prototype.successResponse = function (type, cid, pid){
+  var msg = {
+    h: {t: type, cid: cid},
+    s: true
+  };
+
+  if (pid) {
+    msg.h.pid = pid;
   }
+
+  console.log(msg);
+  this.socket.send(JSON.stringify(msg));
+};
+
+remoteCalls.prototype.sendSignal = function (actionObj){
+  var msg  = {
+    h: {
+      t: 5
+    },
+    a: 'signal',
+    d: actionObj
+  };
+  this.socket.send(JSON.stringify(msg));
+};
+},{}],"./lib/rpcManager.js":[function(require,module,exports){module.exports = require('aMabHs');
+},{}],"aMabHs":[function(require,module,exports){function rpcManager (socket, options) {
+  // TODO implement options if passed
+  this.TIMEOUT = 5000;
+  this.socket = socket;
+  this.cidCount = 0;
+  this.requests = {};
+}
+
+rpcManager.prototype.handleResponse = function (message) {
+
+  if (!message || !message.h || typeof message.h.cid === 'undefined') {
+    // No Correlation Id defined, nothing to do here...
+    return;
+  }
+
+  var correlationId = message.h.cid;
+
+  if (correlationId in requests) {
+    var entry = this.requests[correlationId];
+    clearTimeout(entry.timeout);
+    delete requests[correlationId];
+    entry.callback(null, message);
+  }
+
+};
+
+rpcManager.prototype.generateCid = function () {
+  return ++this.cidCount;
+};
+
+// SaveRequest to handle the callback or to throw a error if timeout
+rpcManager.prototype.saveRequest = function (message, responseCallback){
+  var _this = this;
+  var correlationId = this.generateCid();
+
+  // Timeout 
+  var tId = setTimeout(function (cid) {
+    // If this ever gets called we didn't get a response in a timely fashion
+    responseCallback(new Error("RPC Timeout @ cid " + cid));
+    // delete the entry from hash
+    delete _this.requests[cid];
+  }, _this.TIMEOUT, correlationId);
+
+  // create a request entry to store in a hash
+  var entry = {
+    callback: responseCallback,
+    timeout: tId // the id for the timeout so we can clear it
+  };
+
+  // Put the entry in the hash so we can match the response later
+  _this.requests[correlationId] = entry;
+
+};
+
+// makeRequest function
+rpcManager.prototype.makeRequest = function (message, responseCallback){
+  saveRequest(message, responseCallback); //save the request
+
+  var MESSAGE_TYPE_REQUEST = 1;
+  // Inject the Correlation Id into the message header
+  // and set the message type as REQUEST (if not already set).
+  message.h = message.h || {};
+  message.h.cid = correlationId;
+  message.h.t = message.h.t || MESSAGE_TYPE_REQUEST;
+
+  if (typeof message === 'object') {
+    this.socket.send(JSON.stringify(message));
+  } else {
+    this.socket.send(message);
+  }
+
+
 };
 
 module.exports = rpcManager;
 
-});
+},{}],"./lib/":[function(require,module,exports){module.exports = require('6AMaNE');
+},{}],"6AMaNE":[function(require,module,exports){function Muzzley (options) {
+  var _this = this;
+  // TODO implement options if passed
+  var URI = ' ';
+  
+  _this.socket = new SockJS(URI);
 
-require.define("/lib/rpc/RemoteCalls.js",function(require,module,exports,__dirname,__filename,process,global){function remoteCalls (options) {
-  options = options || {};
-  remoteCalls.$.sock = options.sock;
-  remoteCalls.$.rpcManager = options.rpcManager;
-  return remoteCalls.$;
-}
-
-remoteCalls.$ = { 
-  rpcManager: {},
-  sock: {},
-  handshake: function (callback){
-    var msg = {
-          a: 'handshake',
-          d: {
-            // Mandatory
-            protocolVersion: '1.0',
-            // All the following are optional and experimental
-            lib: 'js',
-            userAgent: 'brwoser angent', // TODO: logic to know wich browser is doing the request
-            connection: 'Wi-Fi', //TODO: check if this is aplicable
-            contentType: 'application/json'
-          }
-        };
-
-    this.rpcManager.makeRequest(msg, this.sock, callback);
-  },
-
-  auth: function (token, callback){
-    var msg = {
-          a: 'loginApp',
-          d: {
-            // Mandatory
-            protocolVersion: '1.0',
-            // All the following are optional and experimental
-            lib: 'js',
-            userAgent: 'browser angent', // TODO: logic to know wich browser is doing the request
-            connection: 'Wi-Fi', //TODO: check if this is aplicable
-            contentType: 'application/json',
-            token: token
-          }
-        };
-
-    this.rpcManager.makeRequest(msg, this.sock, callback);
-  },
-
-  createActivity: function (callback){
-    var msg = {
-      a: 'create',
-      d: {
-        protocolVersion: '1.0',
-        lib: 'js',
-        libVersion: '0.1'
-      }
-    };
-
-    this.rpcManager.makeRequest(msg, this.sock, callback);
-  },
-
-  successResponse: function (type, cid, pid){
-    var msg = {
-      h: {t: type, cid: cid, pid: pid},
-      s: true
-    };
-    console.log(msg);
-    this.sock.send(JSON.stringify(msg));
-  },
-
-  changeWidget: function (widget, pid, callback){
-    var msg = {
-      h: {
-        pid: pid
-      },
-      a: 'signal',
-      d: {
-        a: 'changeWidget',
-        d:{
-          widget: widget
-        }
-      }
-    };
-    console.log(msg);
-    this.rpcManager.makeRequest(msg, this.sock, callback);
-  }
-};
-
-module.exports = remoteCalls;
-});
-
-require.define("util",function(require,module,exports,__dirname,__filename,process,global){var events = require('events');
-
-exports.isArray = isArray;
-exports.isDate = function(obj){return Object.prototype.toString.call(obj) === '[object Date]'};
-exports.isRegExp = function(obj){return Object.prototype.toString.call(obj) === '[object RegExp]'};
-
-
-exports.print = function () {};
-exports.puts = function () {};
-exports.debug = function() {};
-
-exports.inspect = function(obj, showHidden, depth, colors) {
-  var seen = [];
-
-  var stylize = function(str, styleType) {
-    // http://en.wikipedia.org/wiki/ANSI_escape_code#graphics
-    var styles =
-        { 'bold' : [1, 22],
-          'italic' : [3, 23],
-          'underline' : [4, 24],
-          'inverse' : [7, 27],
-          'white' : [37, 39],
-          'grey' : [90, 39],
-          'black' : [30, 39],
-          'blue' : [34, 39],
-          'cyan' : [36, 39],
-          'green' : [32, 39],
-          'magenta' : [35, 39],
-          'red' : [31, 39],
-          'yellow' : [33, 39] };
-
-    var style =
-        { 'special': 'cyan',
-          'number': 'blue',
-          'boolean': 'yellow',
-          'undefined': 'grey',
-          'null': 'bold',
-          'string': 'green',
-          'date': 'magenta',
-          // "name": intentionally not styling
-          'regexp': 'red' }[styleType];
-
-    if (style) {
-      return '\033[' + styles[style][0] + 'm' + str +
-             '\033[' + styles[style][1] + 'm';
-    } else {
-      return str;
-    }
+  socket.onopen = function()  {
+    _this.rpcManager = new require('./lib/rpcManager.js')(_this.socket);
+    _this.remoteCalls = new require('./lib/remoteCalls.js')(_this.socket, _this.rpcManager);
   };
-  if (! colors) {
-    stylize = function(str, styleType) { return str; };
-  }
 
-  function format(value, recurseTimes) {
-    // Provide a hook for user-specified inspect functions.
-    // Check that value is an object with an inspect function on it
-    if (value && typeof value.inspect === 'function' &&
-        // Filter out the util module, it's inspect function is special
-        value !== exports &&
-        // Also filter out any prototype objects using the circular check.
-        !(value.constructor && value.constructor.prototype === value)) {
-      return value.inspect(recurseTimes);
-    }
+  socket.onmessage = function(message) {
+  
+  };
 
-    // Primitive types cannot have properties
-    switch (typeof value) {
-      case 'undefined':
-        return stylize('undefined', 'undefined');
-
-      case 'string':
-        var simple = '\'' + JSON.stringify(value).replace(/^"|"$/g, '')
-                                                 .replace(/'/g, "\\'")
-                                                 .replace(/\\"/g, '"') + '\'';
-        return stylize(simple, 'string');
-
-      case 'number':
-        return stylize('' + value, 'number');
-
-      case 'boolean':
-        return stylize('' + value, 'boolean');
-    }
-    // For some reason typeof null is "object", so special case here.
-    if (value === null) {
-      return stylize('null', 'null');
-    }
-
-    // Look up the keys of the object.
-    var visible_keys = Object_keys(value);
-    var keys = showHidden ? Object_getOwnPropertyNames(value) : visible_keys;
-
-    // Functions without properties can be shortcutted.
-    if (typeof value === 'function' && keys.length === 0) {
-      if (isRegExp(value)) {
-        return stylize('' + value, 'regexp');
-      } else {
-        var name = value.name ? ': ' + value.name : '';
-        return stylize('[Function' + name + ']', 'special');
-      }
-    }
-
-    // Dates without properties can be shortcutted
-    if (isDate(value) && keys.length === 0) {
-      return stylize(value.toUTCString(), 'date');
-    }
-
-    var base, type, braces;
-    // Determine the object type
-    if (isArray(value)) {
-      type = 'Array';
-      braces = ['[', ']'];
-    } else {
-      type = 'Object';
-      braces = ['{', '}'];
-    }
-
-    // Make functions say that they are functions
-    if (typeof value === 'function') {
-      var n = value.name ? ': ' + value.name : '';
-      base = (isRegExp(value)) ? ' ' + value : ' [Function' + n + ']';
-    } else {
-      base = '';
-    }
-
-    // Make dates with properties first say the date
-    if (isDate(value)) {
-      base = ' ' + value.toUTCString();
-    }
-
-    if (keys.length === 0) {
-      return braces[0] + base + braces[1];
-    }
-
-    if (recurseTimes < 0) {
-      if (isRegExp(value)) {
-        return stylize('' + value, 'regexp');
-      } else {
-        return stylize('[Object]', 'special');
-      }
-    }
-
-    seen.push(value);
-
-    var output = keys.map(function(key) {
-      var name, str;
-      if (value.__lookupGetter__) {
-        if (value.__lookupGetter__(key)) {
-          if (value.__lookupSetter__(key)) {
-            str = stylize('[Getter/Setter]', 'special');
-          } else {
-            str = stylize('[Getter]', 'special');
-          }
-        } else {
-          if (value.__lookupSetter__(key)) {
-            str = stylize('[Setter]', 'special');
-          }
-        }
-      }
-      if (visible_keys.indexOf(key) < 0) {
-        name = '[' + key + ']';
-      }
-      if (!str) {
-        if (seen.indexOf(value[key]) < 0) {
-          if (recurseTimes === null) {
-            str = format(value[key]);
-          } else {
-            str = format(value[key], recurseTimes - 1);
-          }
-          if (str.indexOf('\n') > -1) {
-            if (isArray(value)) {
-              str = str.split('\n').map(function(line) {
-                return '  ' + line;
-              }).join('\n').substr(2);
-            } else {
-              str = '\n' + str.split('\n').map(function(line) {
-                return '   ' + line;
-              }).join('\n');
-            }
-          }
-        } else {
-          str = stylize('[Circular]', 'special');
-        }
-      }
-      if (typeof name === 'undefined') {
-        if (type === 'Array' && key.match(/^\d+$/)) {
-          return str;
-        }
-        name = JSON.stringify('' + key);
-        if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-          name = name.substr(1, name.length - 2);
-          name = stylize(name, 'name');
-        } else {
-          name = name.replace(/'/g, "\\'")
-                     .replace(/\\"/g, '"')
-                     .replace(/(^"|"$)/g, "'");
-          name = stylize(name, 'string');
-        }
-      }
-
-      return name + ': ' + str;
-    });
-
-    seen.pop();
-
-    var numLinesEst = 0;
-    var length = output.reduce(function(prev, cur) {
-      numLinesEst++;
-      if (cur.indexOf('\n') >= 0) numLinesEst++;
-      return prev + cur.length + 1;
-    }, 0);
-
-    if (length > 50) {
-      output = braces[0] +
-               (base === '' ? '' : base + '\n ') +
-               ' ' +
-               output.join(',\n  ') +
-               ' ' +
-               braces[1];
-
-    } else {
-      output = braces[0] + base + ' ' + output.join(', ') + ' ' + braces[1];
-    }
-
-    return output;
-  }
-  return format(obj, (typeof depth === 'undefined' ? 2 : depth));
-};
+  socket.onclose   = function()  {
+  
+  };
 
 
-function isArray(ar) {
-  return ar instanceof Array ||
-         Array.isArray(ar) ||
-         (ar && ar !== Object.prototype && isArray(ar.__proto__));
 }
 
+module.exports = Muzzley;
+},{}],2:[function(require,module,exports){muzzley = require('./index');
 
-function isRegExp(re) {
-  return re instanceof RegExp ||
-    (typeof re === 'object' && Object.prototype.toString.call(re) === '[object RegExp]');
-}
-
-
-function isDate(d) {
-  if (d instanceof Date) return true;
-  if (typeof d !== 'object') return false;
-  var properties = Date.prototype && Object_getOwnPropertyNames(Date.prototype);
-  var proto = d.__proto__ && Object_getOwnPropertyNames(d.__proto__);
-  return JSON.stringify(proto) === JSON.stringify(properties);
-}
-
-function pad(n) {
-  return n < 10 ? '0' + n.toString(10) : n.toString(10);
-}
-
-var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-              'Oct', 'Nov', 'Dec'];
-
-// 26 Feb 16:19:34
-function timestamp() {
-  var d = new Date();
-  var time = [pad(d.getHours()),
-              pad(d.getMinutes()),
-              pad(d.getSeconds())].join(':');
-  return [d.getDate(), months[d.getMonth()], time].join(' ');
-}
-
-exports.log = function (msg) {};
-
-exports.pump = null;
-
-var Object_keys = Object.keys || function (obj) {
-    var res = [];
-    for (var key in obj) res.push(key);
-    return res;
-};
-
-var Object_getOwnPropertyNames = Object.getOwnPropertyNames || function (obj) {
-    var res = [];
-    for (var key in obj) {
-        if (Object.hasOwnProperty.call(obj, key)) res.push(key);
-    }
-    return res;
-};
-
-var Object_create = Object.create || function (prototype, properties) {
-    // from es5-shim
-    var object;
-    if (prototype === null) {
-        object = { '__proto__' : null };
-    }
-    else {
-        if (typeof prototype !== 'object') {
-            throw new TypeError(
-                'typeof prototype[' + (typeof prototype) + '] != \'object\''
-            );
-        }
-        var Type = function () {};
-        Type.prototype = prototype;
-        object = new Type();
-        object.__proto__ = prototype;
-    }
-    if (typeof properties !== 'undefined' && Object.defineProperties) {
-        Object.defineProperties(object, properties);
-    }
-    return object;
-};
-
-exports.inherits = function(ctor, superCtor) {
-  ctor.super_ = superCtor;
-  ctor.prototype = Object_create(superCtor.prototype, {
-    constructor: {
-      value: ctor,
-      enumerable: false,
-      writable: true,
-      configurable: true
-    }
-  });
-};
-
-var formatRegExp = /%[sdj%]/g;
-exports.format = function(f) {
-  if (typeof f !== 'string') {
-    var objects = [];
-    for (var i = 0; i < arguments.length; i++) {
-      objects.push(exports.inspect(arguments[i]));
-    }
-    return objects.join(' ');
-  }
-
-  var i = 1;
-  var args = arguments;
-  var len = args.length;
-  var str = String(f).replace(formatRegExp, function(x) {
-    if (x === '%%') return '%';
-    if (i >= len) return x;
-    switch (x) {
-      case '%s': return String(args[i++]);
-      case '%d': return Number(args[i++]);
-      case '%j': return JSON.stringify(args[i++]);
-      default:
-        return x;
-    }
-  });
-  for(var x = args[i]; i < len; x = args[++i]){
-    if (x === null || typeof x !== 'object') {
-      str += ' ' + x;
-    } else {
-      str += ' ' + exports.inspect(x);
-    }
-  }
-  return str;
-};
-
-});
-
-require.define("events",function(require,module,exports,__dirname,__filename,process,global){if (!process.EventEmitter) process.EventEmitter = function () {};
-
-var EventEmitter = exports.EventEmitter = process.EventEmitter;
-var isArray = typeof Array.isArray === 'function'
-    ? Array.isArray
-    : function (xs) {
-        return Object.prototype.toString.call(xs) === '[object Array]'
-    }
-;
-function indexOf (xs, x) {
-    if (xs.indexOf) return xs.indexOf(x);
-    for (var i = 0; i < xs.length; i++) {
-        if (x === xs[i]) return i;
-    }
-    return -1;
-}
-
-// By default EventEmitters will print a warning if more than
-// 10 listeners are added to it. This is a useful default which
-// helps finding memory leaks.
-//
-// Obviously not all Emitters should be limited to 10. This function allows
-// that to be increased. Set to zero for unlimited.
-var defaultMaxListeners = 10;
-EventEmitter.prototype.setMaxListeners = function(n) {
-  if (!this._events) this._events = {};
-  this._events.maxListeners = n;
-};
-
-
-EventEmitter.prototype.emit = function(type) {
-  // If there is no 'error' event listener then throw.
-  if (type === 'error') {
-    if (!this._events || !this._events.error ||
-        (isArray(this._events.error) && !this._events.error.length))
-    {
-      if (arguments[1] instanceof Error) {
-        throw arguments[1]; // Unhandled 'error' event
-      } else {
-        throw new Error("Uncaught, unspecified 'error' event.");
-      }
-      return false;
-    }
-  }
-
-  if (!this._events) return false;
-  var handler = this._events[type];
-  if (!handler) return false;
-
-  if (typeof handler == 'function') {
-    switch (arguments.length) {
-      // fast cases
-      case 1:
-        handler.call(this);
-        break;
-      case 2:
-        handler.call(this, arguments[1]);
-        break;
-      case 3:
-        handler.call(this, arguments[1], arguments[2]);
-        break;
-      // slower
-      default:
-        var args = Array.prototype.slice.call(arguments, 1);
-        handler.apply(this, args);
-    }
-    return true;
-
-  } else if (isArray(handler)) {
-    var args = Array.prototype.slice.call(arguments, 1);
-
-    var listeners = handler.slice();
-    for (var i = 0, l = listeners.length; i < l; i++) {
-      listeners[i].apply(this, args);
-    }
-    return true;
-
-  } else {
-    return false;
-  }
-};
-
-// EventEmitter is defined in src/node_events.cc
-// EventEmitter.prototype.emit() is also defined there.
-EventEmitter.prototype.addListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('addListener only takes instances of Function');
-  }
-
-  if (!this._events) this._events = {};
-
-  // To avoid recursion in the case that type == "newListeners"! Before
-  // adding it to the listeners, first emit "newListeners".
-  this.emit('newListener', type, listener);
-
-  if (!this._events[type]) {
-    // Optimize the case of one listener. Don't need the extra array object.
-    this._events[type] = listener;
-  } else if (isArray(this._events[type])) {
-
-    // Check for listener leak
-    if (!this._events[type].warned) {
-      var m;
-      if (this._events.maxListeners !== undefined) {
-        m = this._events.maxListeners;
-      } else {
-        m = defaultMaxListeners;
-      }
-
-      if (m && m > 0 && this._events[type].length > m) {
-        this._events[type].warned = true;
-        console.error('(node) warning: possible EventEmitter memory ' +
-                      'leak detected. %d listeners added. ' +
-                      'Use emitter.setMaxListeners() to increase limit.',
-                      this._events[type].length);
-        console.trace();
-      }
-    }
-
-    // If we've already got an array, just append.
-    this._events[type].push(listener);
-  } else {
-    // Adding the second element, need to change to array.
-    this._events[type] = [this._events[type], listener];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.on = EventEmitter.prototype.addListener;
-
-EventEmitter.prototype.once = function(type, listener) {
-  var self = this;
-  self.on(type, function g() {
-    self.removeListener(type, g);
-    listener.apply(this, arguments);
-  });
-
-  return this;
-};
-
-EventEmitter.prototype.removeListener = function(type, listener) {
-  if ('function' !== typeof listener) {
-    throw new Error('removeListener only takes instances of Function');
-  }
-
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (!this._events || !this._events[type]) return this;
-
-  var list = this._events[type];
-
-  if (isArray(list)) {
-    var i = indexOf(list, listener);
-    if (i < 0) return this;
-    list.splice(i, 1);
-    if (list.length == 0)
-      delete this._events[type];
-  } else if (this._events[type] === listener) {
-    delete this._events[type];
-  }
-
-  return this;
-};
-
-EventEmitter.prototype.removeAllListeners = function(type) {
-  // does not use listeners(), so no side effect of creating _events[type]
-  if (type && this._events && this._events[type]) this._events[type] = null;
-  return this;
-};
-
-EventEmitter.prototype.listeners = function(type) {
-  if (!this._events) this._events = {};
-  if (!this._events[type]) this._events[type] = [];
-  if (!isArray(this._events[type])) {
-    this._events[type] = [this._events[type]];
-  }
-  return this._events[type];
-};
-
-});
+},{"./index":"6AMaNE"}]},{},[1,2]);

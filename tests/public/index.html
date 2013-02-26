@@ -2,37 +2,8 @@
 <html>
   <head>
     <link rel="stylesheet", href="/css/documentation.css"></link>
-    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
-    <script src="js/muzzley-sdk.js"></script>
+    <script src="/muzzley-sdk.js"></script>
     <script>
-      var muzzley = require('/lib/main');
-      muzzley.connect('wwtbam741', function(activity){
-        console.log(activity);
-
-        // Create qrCode image
-        $('<img />', { 'src': activity.qrCodeUrl, 'style':'width:300px'}).appendTo('#qrCodeImg');
-        $('<p />', {html: "Up and running."}).appendTo('#logs');
-        $('<p />', {html: "Wating players to join..."}).appendTo('#logs');
-
-        activity.on('participantJoin', function(participant) {
-          console.log(participant);
-          $('<p />', {html: "Player Joined"}).appendTo('#logs');
-          $('<p />', {html: "Player Name: " + participant.name}).appendTo('#logs');
-
-          participant.changeWidget('gamepad', function(err){
-            participant.on('action', function(action) {
-              var logmsg = "Player (" + participant.name + ") did the fowllowing action => "
-              logmsg += "Event: " + action.e + " controller: " + action.c + " value: " + action.v
-              $('<p />', {html: logmsg}).appendTo('#logs');
-              console.log(action);
-              $("#logs").scrollTop($("#logs")[0].scrollHeight);
-            });
-
-          });
-          
-        });
-
-      });
     </script>
     <style>
       body{
