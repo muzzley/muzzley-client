@@ -22,7 +22,7 @@ js.bundle(function(err, file){
 });
 
 var js2 = browserify();
-js2.require('./clientRequire.js');
+js2.require(process.cwd() + '/tests/clientRequire.js');
 
 js2.bundle(function(err, file){
   fs.writeFile(process.cwd() + '/tests/public/testRequire.js', file, function (err) {

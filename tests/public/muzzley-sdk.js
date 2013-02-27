@@ -2377,8 +2377,8 @@ if (typeof define === 'function' && define.amd) {
 
 // [*] End of lib/all.js
 })()
-},{}],"./lib/remoteCalls.js":[function(require,module,exports){module.exports = require('xlROim');
-},{}],"xlROim":[function(require,module,exports){function remoteCalls (socket, rpcManager, options) {
+},{}],"./lib/remoteCalls.js":[function(require,module,exports){module.exports = require('i4R17/');
+},{}],"i4R17/":[function(require,module,exports){function remoteCalls (socket, rpcManager, options) {
   // TODO implement options if passed
   this.rpcManager = rpcManager;
   this.socket = socket;
@@ -2491,8 +2491,8 @@ remoteCalls.prototype.sendSignal = function (actionObj){
   };
   this.socket.send(JSON.stringify(msg));
 };
-},{}],"./lib/rpcManager.js":[function(require,module,exports){module.exports = require('aMabHs');
-},{}],"aMabHs":[function(require,module,exports){function rpcManager (socket, options) {
+},{}],"./lib/rpcManager.js":[function(require,module,exports){module.exports = require('cv20O5');
+},{}],"cv20O5":[function(require,module,exports){function rpcManager (socket, options) {
   // TODO implement options if passed
   this.TIMEOUT = 5000;
   this.socket = socket;
@@ -2568,8 +2568,8 @@ rpcManager.prototype.makeRequest = function (message, responseCallback){
 
 module.exports = rpcManager;
 
-},{}],"./lib/":[function(require,module,exports){module.exports = require('6AMaNE');
-},{}],"6AMaNE":[function(require,module,exports){function Muzzley (options) {
+},{}],"./lib/":[function(require,module,exports){module.exports = require('Ic3A6R');
+},{}],"Ic3A6R":[function(require,module,exports){function Muzzley (options) {
   var _this = this;
   // TODO implement options if passed
   var URI = ' ';
@@ -2595,4 +2595,4 @@ module.exports = rpcManager;
 module.exports = Muzzley;
 },{}],2:[function(require,module,exports){muzzley = require('./index');
 
-},{"./index":"6AMaNE"}]},{},[1,2]);
+},{"./index":"Ic3A6R"}]},{},[1,2]);
