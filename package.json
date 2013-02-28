@@ -2,7 +2,7 @@
   "name": "muzzley-sdk-js",
   "version": "0.1.0",
   "private": true,
-  "main": "lib/index.js",
+  "main": "lib/node-dist.js",
   "browser": "lib/index.js",
   "dependencies": {
     "browserify": "*",

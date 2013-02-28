@@ -1,6 +1,6 @@
 {
-  "name": "muzzley-sdk-js",
-  "version": "0.0.12",
+  "name": "muzzley-sdk-js-tester",
+  "version": "0.0.1",
   "private": true,
   "main": "lib/main.js",
   "dependencies": {
