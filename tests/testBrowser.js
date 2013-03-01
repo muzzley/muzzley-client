@@ -11,7 +11,7 @@ var browserify = require('browserify');
 var js = browserify();
 js.require('./lib/', {expose:'muzzley-sdk-js'});
 
-js.add('./lib/browser.js');
+js.add('./lib/browser-dist.js');
 
 js.bundle(function(err, file){
   fs.writeFile(process.cwd() + '/tests/public/test-sdk-dist.js', file, function (err) {

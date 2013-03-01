@@ -1,13 +1,23 @@
-require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{"muzzley-sdk-js":[function(require,module,exports){module.exports = require('Ic3A6R');
+require=(function(e,t,n,r){function i(r){if(!n[r]){if(!t[r]){if(e)return e(r);throw new Error("Cannot find module '"+r+"'")}var s=n[r]={exports:{}};t[r][0](function(e){var n=t[r][1][e];return i(n?n:e)},s,s.exports)}return n[r].exports}for(var s=0;s<r.length;s++)i(r[s]);return i})(typeof require!=="undefined"&&require,{1:[function(require,module,exports){muzzley = require('muzzley-sdk-js');
+
+},{"muzzley-sdk-js":"muzzley-sdk-js"}],"muzzley-sdk-js":[function(require,module,exports){module.exports=require('Ic3A6R');
 },{}],"Ic3A6R":[function(require,module,exports){var rpcManager = require('./rpcManager.js');
 var remoteCalls = require('./remoteCalls.js');
 
 function Muzzley (options) {
   var _this = this;
   // TODO implement options if passed
-  var URI = ' ';
-  
-  _this.socket = new SockJS(URI);
+
+  _this.URI = options.uri;
+  _this.socket = options.socket;
+
+  return _this;
+
+}
+
+Muzzley.prototype.createActivity = function(token, callback){
+  var _this = this;
+  _this.socket = new _this.socket('ws://platform.geo.muzzley.com:80/ws');
 
   socket.onopen = function()  {
     _this.rpcManager = new rpcManager(_this.socket);
@@ -15,18 +25,37 @@ function Muzzley (options) {
   };
 
   socket.onmessage = function(message) {
-  
+    var MESSAGE_TYPE_REQUEST = 1;
+    var MESSAGE_TYPE_RESPONSE = 2;
+    var MESSAGE_TYPE_REQUEST_CORE = 3;
+    var MESSAGE_TYPE_RESPONSE_CORE = 4;
+    var MESSAGE_TYPE_SIGNAL = 5;
+
+    if (typeof message !== 'object') {
+      try {
+        message = JSON.parse(message);
+      } catch (e) {
+        //console.log('Received an invalid non-JSON message. Ignoring.');
+        //console.log(e);
+        return;
+      }
+    }
   };
 
-  socket.onclose   = function()  {
-  
+  socket.onclose = function()  {
+
   };
 
+};
 
-}
+
+Muzzley.prototype.joinActivity = function(token, callback){
+
+};
+
 
 module.exports = Muzzley;
-},{"./rpcManager.js":1,"./remoteCalls.js":2}],1:[function(require,module,exports){function rpcManager (socket, options) {
+},{"./rpcManager.js":2,"./remoteCalls.js":3}],2:[function(require,module,exports){function rpcManager (socket, options) {
   // TODO implement options if passed
   this.TIMEOUT = 5000;
   this.socket = socket;
@@ -102,7 +131,7 @@ rpcManager.prototype.makeRequest = function (message, responseCallback){
 
 module.exports = rpcManager;
 
-},{}],2:[function(require,module,exports){function remoteCalls (socket, rpcManager, options) {
+},{}],3:[function(require,module,exports){function remoteCalls (socket, rpcManager, options) {
   // TODO implement options if passed
   this.rpcManager = rpcManager;
   this.socket = socket;
@@ -215,6 +244,6 @@ remoteCalls.prototype.sendSignal = function (actionObj){
   };
   this.socket.send(JSON.stringify(msg));
 };
-},{}],3:[function(require,module,exports){muzzley = require('muzzley-sdk-js');
 
-},{"muzzley-sdk-js":"Ic3A6R"}]},{},[3]);
+module.exports = remoteCalls;
+},{}]},{},[1]);
