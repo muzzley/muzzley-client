@@ -4,7 +4,7 @@ var browserify = require('browserify');
 var js = browserify();
 js.require('./lib/', {expose:'muzzley-sdk-js'});
 
-js.add('./lib/browser.js');
+js.add('./lib/browser-dist.js');
 
 js.bundle({watch: true, filter : require('uglify-js') }, function(err, file){
   fs.writeFile(__dirname + '/dist/muzzley-sdk.js', file, function (err) {
