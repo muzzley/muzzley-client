@@ -23,7 +23,35 @@ soon.
 soon.
 
 ## API Documentation
-soon.
+
+If you wanna use the lowest level of the api:
+
+```
+var muzzley = require('lib/');
+
+var muzz = new muzzley(options)
+
+```
+
+Creates a muzzley instance `muzz`
+`options` is a object with the following properties:
+  * `uri` the websocket server uri
+  * `socket` the websocket library that you want to use
+
+
+If you use one of our recipes (recommended):
+
+```
+var muzz = require('muzzley-sdk-js');
+
+```
+This `muzz` is ready to use and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use
+
+###methods
+
+
+
+
 
 ## Modify and test
 
