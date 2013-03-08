@@ -15,7 +15,36 @@ the first "recipe" is the classic way you just need to add the `<script>` tag on
 this recipe uses browserify that is a node-style `require()` to organize your browser code and load modules installed by npm.
 
 ### Node.js
+To use the library with `nodejs` first you need to add the npm manifest `package.json`:
 
+```javascript
+{
+  "name": "package-demos",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "muzzley-sdk-js":"git+ssh://git@bitbucket.org:muzzley/muzzley-sdk-js.git#v0.1.0"
+  }
+}
+```
+You need add a dependecie called `muzzley-sdk-js` that points to our private repository of the sdk, and your ready to `require` it on your application:
+
+```javascript
+
+var muzzley = require('muzzley-sdk-js');
+
+
+muzzley.createActivity('asd', function(err, activity){
+  activity.on('participantJoin', function(participant){  
+    participant.changeWidget('gamepad', function (err) {      
+      participant.on('action', function (action) {
+        console.log(action);
+      });
+    });
+  });
+});
+
+```
 
 ### Ender support
 soon.
@@ -26,7 +55,7 @@ soon.
 
 If you wanna use the lowest level of the api:
 
-```
+```javascript
 var muzzley = require('lib/');
 
 var muzz = new muzzley(options)
@@ -41,7 +70,7 @@ Creates a muzzley instance `muzz`, it recives a
 
 If you use one of our recipes (recommended):
 
-```
+```javascript
 var muzz = require('muzzley-sdk-js');
 ```
 Creates a muzzley instance `muzz` ready to use, and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use.
@@ -83,18 +112,35 @@ The `activity` object will have your activity settings:
 }
 ```
 
-The `activity` is a event-listener, and you need can listen the fowlloing events:
+The `activity` is also a event-listener, and you need can listen the fowlloing events:
 ```javascript
 function callback(err, activity){
-  activity.on('participantJoin', callbackJoin);
+  activity.on('participantJoin', Join);
 
-  activity.on('participantQuit', callbackQuit);
+  activity.on('participantQuit', Quit);
 }
 ```
 `'participantJoin'` This event is emmited everytime a user joins your activity
 
 `'participantQuit'` This event is emmited everytime a user quits your activity
 
+
+each of this events functions will recive a `participant` object
+```javascript
+function callback(err, activity){
+  activity.on('participantJoin', Join);
+
+  activity.on('participantQuit', Quit);
+}
+
+function Join (participant){
+  
+}
+
+function Quit (participant){
+  
+}
+```
 
 
 ## Modify and test
