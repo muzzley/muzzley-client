@@ -52,13 +52,13 @@ Creates a muzzley instance `muzz` ready to use, and the diference is that our li
 
 This is the method to create an activity
 
-The simple way to use is just passing a `token`, in this example the `activityId` will be dinamic and diferent everytime
+The simple way to use is just passing a `token`, and this way the `activityId` will be dinamic and diferent everytime
 ```javascript
 var token = '123sda';
 muzz.createActivity(token, callback)
 ```
 
-You can also pass a `options` object with the `token` and a `activityId` defined by you
+You can also pass a `options` object with the `token` and the `activityId` can be defined by you
 ```javascript
 var options = {
   token:'123sda',
@@ -73,6 +73,7 @@ function callback(err, activity){
   
 }
 ```
+### activity
 
 The `activity` object will have your activity settings:
 ```javascript
@@ -82,7 +83,19 @@ The `activity` object will have your activity settings:
 }
 ```
 
-The `activity` is a event-listener
+The `activity` is a event-listener, and you need can listen the fowlloing events:
+```javascript
+function callback(err, activity){
+  activity.on('participantJoin', callbackJoin);
+
+  activity.on('participantQuit', callbackQuit);
+}
+```
+`'participantJoin'` This event is emmited everytime a user joins your activity
+
+`'participantQuit'` This event is emmited everytime a user quits your activity
+
+
 
 ## Modify and test
 
@@ -119,7 +132,8 @@ Attention: if you modify something on the lib you need to push all modifications
 ###API tests, this is the tests that actualy test the sdk api:
 
 
-#attention 
-###this documentation is being created as you read
+#Warning :
+###This documentation is being created as you read
+
 
 
