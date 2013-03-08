@@ -30,28 +30,59 @@ If you wanna use the lowest level of the api:
 var muzzley = require('lib/');
 
 var muzz = new muzzley(options)
-
 ```
 
-Creates a muzzley instance `muzz`
-`options` is a object with the following properties:
-  * `uri` the websocket server uri
-  * `socket` the websocket library that you want to use
+Creates a muzzley instance `muzz`, it recives a
+`options` object with the following properties:
+
+*   `uri` the websocket server uri
+*   `socket` the websocket library that you want to use
 
 
 If you use one of our recipes (recommended):
 
 ```
 var muzz = require('muzzley-sdk-js');
-
 ```
-This `muzz` is ready to use and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use
+Creates a muzzley instance `muzz` ready to use, and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use.
 
-###methods
+##methods:
 
+### muzz.createActivity
 
+This is the method to create an activity
 
+The simple way to use is just passing a `token`, in this example the `activityId` will be dinamic and diferent everytime
+```javascript
+var token = '123sda';
+muzz.createActivity(token, callback)
+```
 
+You can also pass a `options` object with the `token` and a `activityId` defined by you
+```javascript
+var options = {
+  token:'123sda',
+  activityId: 'weee'
+}
+muzz.createActivity(options, callback)
+```
+
+The `callback` function will recive a `err` and a `activity` object
+```javascript
+function callback(err, activity){
+  
+}
+```
+
+The `activity` object will have your activity settings:
+```javascript
+{ 
+  activityId: '940232',
+  qrCodeUrl: 'http://alpha.muzzley.com/qrcode/940232' 
+}
+```
+
+The `activity` is a event-listener
 
 ## Modify and test
 
@@ -61,16 +92,16 @@ Before you run the tests you need to run `npm install` inside the `/tests dir`
 We have some type of tests
 
 ###First we have tests for distribution
-In this tests we actualy compile the sdk and serve it to be tested on browsers trought the diferent "recipes"
+In this tests we actualy compile the sdk and serve it to be tested on browsers trought  diferent "recipes"
 
 To run the browser tests you just need to run the following command: `node /tests/testbrowser.js`
 
 This will mount a http-server on the the following url: `http://localhost:8081/`, it will also compile the sdk, the compiled result will go to the `/tests/public/` dir and will be the fowlloing files:
 
-test-sdk-browserify.js: that is compiled using browserify and the muzzley-sdk is used trought the commonjs "require" convenction, the code of this test that can be found on the `/tests/browsererify.js` file
+`test-sdk-browserify.js`: that is compiled using browserify and the muzzley-sdk is used trought the commonjs "require" convenction, the code of this test that can be found on the `/tests/browsererify.js` file
 
 
-test-sdk-dist.js: this is a compiled version of the muzzley-sdk to be used stand alone (like jquery) you just need to add the `<script>` tag and your ready to go.
+`test-sdk-dist.js`: this is a compiled version of the muzzley-sdk to be used stand alone (like jquery) you just need to add the `<script>` tag and your ready to go.
 
 to actualy test it you just need to open the browser with the fowlloing urls :
 
@@ -82,10 +113,13 @@ to actualy test it you just need to open the browser with the fowlloing urls :
 We also have some node.js tests, this one works like browserify(just use `require`), and the file to run the tests is `/tests/testNode.js`
 
 
-Attention: if you modify something on the lib you need to push all modifications to bitbucket and run again `npm install` on the `/tests` dir, this appens because the package.json inside of the dir `/tests` actualy points to the muzzley-sdk-js on the bitbucket repository, to make sure that tests are running more likely a production env.
+Attention: if you modify something on the lib you need to push all modifications to bitbucket you need to run again `npm install` on the `/tests` dir, this appens because the package.json inside of the dir `/tests` actualy points to the muzzley-sdk-js on the bitbucket repository, this is to make sure that all tests are running more likely a production env.
 
 
 ###API tests, this is the tests that actualy test the sdk api:
 
+
+#attention 
+###this documentation is being created as you read
 
 
