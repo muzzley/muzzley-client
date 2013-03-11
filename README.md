@@ -17,7 +17,7 @@ this recipe uses browserify that is a node-style `require()` to organize your br
 ### Node.js
 To use the library with `nodejs` first you need to add the npm manifest `package.json`:
 
-```javascript
+```
 {
   "name": "package-demos",
   "version": "0.0.1",
@@ -29,11 +29,8 @@ To use the library with `nodejs` first you need to add the npm manifest `package
 ```
 You need add a dependecie called `muzzley-sdk-js` that points to our private repository of the sdk, and your ready to `require` it on your application:
 
-```javascript
-
+```
 var muzzley = require('muzzley-sdk-js');
-
-
 muzzley.createActivity('asd', function(err, activity){
   activity.on('participantJoin', function(participant){  
     participant.changeWidget('gamepad', function (err) {      
@@ -43,7 +40,6 @@ muzzley.createActivity('asd', function(err, activity){
     });
   });
 });
-
 ```
 
 ### Ender support
@@ -55,7 +51,7 @@ soon.
 
 If you wanna use the lowest level of the api:
 
-```javascript
+```
 var muzzley = require('lib/');
 
 var muzz = new muzzley(options)
@@ -70,7 +66,7 @@ Creates a muzzley instance `muzz`, it recives a
 
 If you use one of our recipes (recommended):
 
-```javascript
+```
 var muzz = require('muzzley-sdk-js');
 ```
 Creates a muzzley instance `muzz` ready to use, and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use.
@@ -82,13 +78,15 @@ Creates a muzzley instance `muzz` ready to use, and the diference is that our li
 This is the method to create an activity
 
 The simple way to use is just passing a `token`, and this way the `activityId` will be dinamic and diferent everytime
-```javascript
+
+```
 var token = '123sda';
 muzz.createActivity(token, callback)
 ```
 
 You can also pass a `options` object with the `token` and the `activityId` can be defined by you
-```javascript
+
+```
 var options = {
   token:'123sda',
   activityId: 'weee'
@@ -97,7 +95,8 @@ muzz.createActivity(options, callback)
 ```
 
 The `callback` function will recive a `err` and a `activity` object
-```javascript
+
+```
 function callback(err, activity){
   
 }
@@ -105,28 +104,32 @@ function callback(err, activity){
 ### activity
 
 The `activity` object will have your activity settings:
-```javascript
+
+```
 { 
   activityId: '940232',
   qrCodeUrl: 'http://alpha.muzzley.com/qrcode/940232' 
 }
 ```
 
-The `activity` is also a event-listener, and you need can listen the fowlloing events:
-```javascript
+The `activity` is also a event-listener, and you can listen the fowlloing events:
+
+```
 function callback(err, activity){
   activity.on('participantJoin', Join);
 
   activity.on('participantQuit', Quit);
 }
 ```
+
 `'participantJoin'` This event is emmited everytime a user joins your activity
 
 `'participantQuit'` This event is emmited everytime a user quits your activity
 
 
 each of this events functions will recive a `participant` object
-```javascript
+
+```
 function callback(err, activity){
   activity.on('participantJoin', Join);
 
@@ -141,6 +144,20 @@ function Quit (participant){
   
 }
 ```
+
+### participant
+
+The `participant` object will have your participant settings:
+
+```
+{ 
+  id: 1,
+  name: 'Bruno Barreto',
+  photoUrl: 'http://graph.facebook.com/618907828/picture?type=large'
+}
+```
+The `participant` is also a event-listener, and you need can listen the fowlloing events:
+
 
 
 ## Modify and test
