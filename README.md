@@ -71,9 +71,9 @@ soon.
 If you wanna use the lowest level of the api:
 
 ```
-var muzzley = require('lib/');
+var muzzley = require('muzzley-sdk-js');
 
-var muzz = new muzzley(options)
+var muzz = new muzzley.instance(options)
 ```
 
 Creates a muzzley instance `muzz`, it recives a
@@ -88,7 +88,8 @@ If you use one of our recipes (recommended):
 ```
 var muzz = require('muzzley-sdk-js');
 ```
-Creates a muzzley instance `muzz` ready to use, and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use.
+
+Creates a muzzley new instance `muzz` ready to use, and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use.
 
 ##methods:
 
