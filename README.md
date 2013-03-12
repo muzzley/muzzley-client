@@ -32,9 +32,28 @@ You need add a dependecie called `muzzley-sdk-js` that points to our private rep
 ```
 var muzzley = require('muzzley-sdk-js');
 muzzley.createActivity('asd', function(err, activity){
-  activity.on('participantJoin', function(participant){  
-    participant.changeWidget('gamepad', function (err) {      
+
+  console.log(activity);
+  console.log('activityCreated');
+
+
+  activity.on('participantQuit', function(participant){
+    console.log('participantQuit');
+  });
+  activity.on('participantJoin', function(participant){
+    console.log(participant);
+    participant.changeWidget('gamepad', function (err) {
+      console.log('changeWidget');
+
+      participant.on('quit', function (action) {
+        // Action object represents the participants interaction
+        console.log('asd');
+        console.log(action);
+      });
+
+
       participant.on('action', function (action) {
+        // Action object represents the participants interaction
         console.log(action);
       });
     });
@@ -157,6 +176,20 @@ The `participant` object will have your participant settings:
 }
 ```
 The `participant` is also a event-listener, and you need can listen the fowlloing events:
+
+```
+participant.on('action', function (action) {
+  
+});
+
+ participant.on('quit', function () {
+  
+});
+```
+
+`'action'` This event is emmited everytime a participant interacts and recives a action object that represents the participants interaction
+
+`'quit'` This event is emmited the participant quits your activity
 
 
 

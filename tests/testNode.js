@@ -4,7 +4,7 @@ var muzzley = require('../lib/node-dist.js');
 muzzley.createActivity('asd', function(err, activity){
 
   console.log(activity);
-  console.log('connectou');
+  console.log('activityCreated');
 
   activity.on('participantQuit', function(participant){
     console.log('participantQuit');
