@@ -4,15 +4,25 @@ var muzzley = require('../lib/node-dist.js');
 console.log('##Activity: creating activity');
 muzzley.createActivity('muzzlionaire', function(err, activity){
 
-  console.log('##Activity: activityCreated');
+  muzzley.joinActivity('muzdev', activity.activityId, function(err, paticipant){
 
+    //console.log(paticipant);
+    console.log('##User joinedActivity');
+    paticipant.on('changeWidget', function(widget){
+      console.log('##User changeWidget recived');
+    });
+
+  });
+
+  console.log('##Activity: activityCreated');
+  console.log(activity);
   activity.on('participantQuit', function(participant){
     console.log('##Activity: "EVENT" participantQuit');
   });
 
   activity.on('participantJoin', function(participant){
 
-    console.log('##Activity: "EVENT" participantJoined');
+    console.log('##Activity: participantJoined');
     console.log('##Activity: sending changeWidget');
 
     participant.changeWidget('gamepad', function (err) {
