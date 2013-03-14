@@ -79,9 +79,10 @@ var muzz = new muzzley.instance(options)
 Creates a muzzley instance `muzz`, it recives a
 `options` object with the following properties:
 
-*   `uri` the websocket server uri
+*   `endPoint` the websocket server uri
 *   `socket` the websocket library that you want to use
-
+*   `logMessages` the flag to show log messages (default `true`)
+*   `logSocketData` the websocket server uri the flag to show log messages (default `false`)
 
 If you use one of our recipes (recommended):
 
@@ -91,17 +92,17 @@ var muzz = require('muzzley-sdk-js');
 
 Creates a muzzley new instance `muzz` ready to use, and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use.
 
-##methods:
+##Methods:
 
-### muzz.createActivity
+### muzz.connectApp
 
-This is the method to create an activity
+This method connects your app with the muzzley platform and creates an activity
 
 The simple way to use is just passing a `token`, and this way the `activityId` will be dinamic and diferent everytime
 
 ```
 var token = '123sda';
-muzz.createActivity(token, callback)
+muzz.connectApp(token, callback)
 ```
 
 You can also pass a `options` object with the `token` and the `activityId` can be defined by you
@@ -111,7 +112,7 @@ var options = {
   token:'123sda',
   activityId: 'weee'
 }
-muzz.createActivity(options, callback)
+muzz.connectApp(options, callback)
 ```
 
 The `callback` function will recive a `err` and a `activity` object
@@ -121,9 +122,9 @@ function callback(err, activity){
   
 }
 ```
-### activity
+##### activity
 
-The `activity` object will have your activity settings:
+The `activity` object is returned on the callback function of the `muzz.connectApp` and will have your activity settings:
 
 ```
 { 
@@ -165,7 +166,7 @@ function Quit (participant){
 }
 ```
 
-### participant
+##### participant
 
 The `participant` object will have your participant settings:
 
@@ -183,7 +184,7 @@ participant.on('action', function (action) {
   
 });
 
- participant.on('quit', function () {
+participant.on('quit', function () {
   
 });
 ```
@@ -191,6 +192,18 @@ participant.on('action', function (action) {
 `'action'` This event is emmited everytime a participant interacts and recives a action object that represents the participants interaction
 
 `'quit'` This event is emmited the participant quits your activity
+
+
+
+### muzz.connectUser
+This method connects a user with the muzzley platform and creates an participant
+
+```
+var userToken = 'guest';
+var activityId = '14e0f3';
+muzz.connectUser(userToken,activityId, callback)
+```
+
 
 
 
