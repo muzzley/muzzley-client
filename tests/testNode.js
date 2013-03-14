@@ -2,7 +2,7 @@ var muzzley = require('../lib/node-dist.js');
 
 
 console.log('##Activity: creating activity');
-muzzley.createActivity('muzzliodnaire', function(err, activity){
+muzzley.createActivity('muzzlionaire', function(err, activity){
   if (err) return console.log("err: " + err );
 
   muzzley.joinActivity('muzdev', activity.activityId, function(err, paticipant){
