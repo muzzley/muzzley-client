@@ -7,8 +7,7 @@ var http        = require('http');
 var fs = require('fs');
 var browserify = require('browserify');
 
-//var js = browserify(['./vendor/sockjs.js']);
-var js = browserify();
+var js = browserify(['./vendor/sockjs.js']);
 js.require('./lib/', {expose:'muzzley-sdk-js'});
 
 js.add('./lib/browser-dist.js');
