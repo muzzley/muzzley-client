@@ -92,6 +92,17 @@ var muzz = require('muzzley-sdk-js');
 
 Creates a muzzley new instance `muzz` ready to use, and the diference is that our library will figure out by it self what is the `uri` and the `socket` to use.
 
+##Events:
+the muzzley instace is a event-emitter and you can listen for the fowllowing events:
+
+`error` This event is emmited everytime a error appens your activity
+
+```
+muzz.on('error', function(err){
+  console.log(err.toString());
+});
+```
+
 ##Methods:
 
 ### muzz.connectApp
