@@ -2629,16 +2629,7 @@ muzzley = (function(muzzleySDK, options){
 
   };
 
-  muzz.prototype.joinActivity = function(userToken, activityId, callback){
-    var muzzleyConnection = new muzzleySDK(options);
-    muzzleyConnection.joinActivity(userToken, activityId, callback);
 
-    //Bubble error up
-    muzzleyConnection.on('error', function(err){
-      muzz.trigger('error', err);
-    });
-
-  };
 
   var returnValue = new muzz();
   //Enable events on the module
@@ -2677,6 +2668,10 @@ function Muzzley (options) {
     callback(err);
   };
 
+  _this.log = function(msg){
+    if(_this.logMessages) console.log(msg);
+  };
+
   return _this;
 
 }
@@ -2704,20 +2699,20 @@ Muzzley.prototype.createActivity = function(opts, callback){
     _this.rpcManager = new rpcManager(_this.socket);
     _this.remoteCalls = new remoteCalls(_this.socket, _this.rpcManager);
 
-    if(_this.logMessages) console.log('##Activity: sending handShake');
+    _this.log('##Activity: sending handShake');
     _this.remoteCalls.handShake(function(err, response){
       if (err) return _this.handleError(err, callback);
-      if(_this.logMessages) console.log('##Activity: handshaked');
+      _this.log('##Activity: handshaked');
 
-      if(_this.logMessages) console.log('##Activity: sending authApp');
+      _this.log('##Activity: sending authApp');
       _this.remoteCalls.authApp(options.token, function(err, response){
         if (err) return _this.handleError(err, callback);
-        if(_this.logMessages) console.log('##Activity: Authenticaded');
+        _this.log('##Activity: Authenticaded');
 
-        if(_this.logMessages) console.log('##Activity: sending createActivity');
+        _this.log('##Activity: sending createActivity');
         _this.remoteCalls.createActivity(options.activityId, function(err, response){
           if (err) return _this.handleError(err, callback);
-          if(_this.logMessages) console.log('##Activity: Activity Created');
+          _this.log('##Activity: Activity Created');
 
           //Create the activity object
           var activity = {
@@ -2738,8 +2733,8 @@ Muzzley.prototype.createActivity = function(opts, callback){
   };
 
   _this.socket.onmessage = function(message) {
-    if(_this.logSocketData) console.log('##Activity MessageRecived:');
-    if(_this.logSocketData) console.log(message);
+    if(_this.logSocketData) _this.log('##Activity MessageRecived:');
+    if(_this.logSocketData) _this.log(message);
     messageHandler.apply(_this, [message]);
   };
 
@@ -2768,17 +2763,17 @@ Muzzley.prototype.joinActivity = function(userToken, activityId, callback){
 
     _this.remoteCalls.handShake(function(err, response){
       if (err) return _this.handleError(err, callback);
-      if(_this.logMessages) console.log('##User: handShaked');
-      if(_this.logMessages) console.log('##User: sending authUser');
+      _this.log('##User: handShaked');
+      _this.log('##User: sending authUser');
 
       _this.remoteCalls.authUser(userToken, function(err, response){
         if (err) return _this.handleError(err, callback);
-        if(_this.logMessages) console.log('##User: user Authenticaded');
-        if(_this.logMessages) console.log('##User: sending joinActivity');
+        _this.log('##User: user Authenticaded');
+        _this.log('##User: sending joinActivity');
 
         _this.remoteCalls.joinActivity(activityId, function(err, response){
           if (err) return _this.handleError(err, callback);
-          if(_this.logMessages) console.log('##User: joined Activity');
+          _this.log('##User: joined Activity');
 
           //Create the participant object
           var participant = {
@@ -2792,9 +2787,9 @@ Muzzley.prototype.joinActivity = function(userToken, activityId, callback){
 
           // Add the activity object to the current context _this
           _this.user = participant;
-          if(_this.logMessages) console.log('##User: sending Ready Notification');
+          _this.log('##User: sending Ready Notification');
           return _this.remoteCalls.sendReady(function(){
-            if(_this.logMessages) console.log('##User: Recived Ready Notification');
+            _this.log('##User: Recived Ready Notification');
             callback(null, _this.user);
           });
         });
@@ -2803,8 +2798,8 @@ Muzzley.prototype.joinActivity = function(userToken, activityId, callback){
   };
 
   _this.socket.onmessage = function(message) {
-    if(_this.logSocketData) console.log('##User MessageRecived:');
-    if(_this.logSocketData) console.log(message);
+    _this.log('##User MessageRecived:');
+    _this.log(message);
     messageHandler.apply(_this, [message]);
   };
 
