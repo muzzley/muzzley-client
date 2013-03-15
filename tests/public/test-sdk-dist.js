@@ -2379,34 +2379,6 @@ if (typeof define === 'function' && define.amd) {
 // [*] End of lib/all.js
 })()
 },{}],2:[function(require,module,exports){
-var lib = require('muzzley-sdk-js');
-
-var options = {
-  socket: SockJS,
-  endPoint:'http://platform.geo.muzzley.com/web'
-};
-
-muzzley = (function(lib, options){
-  var muzz = function() {};
-
-  muzz.prototype.createActivity = function(opts, callback){
-    var muzzleyConnection = new lib(options);
-    muzzleyConnection.createActivity(opts, callback);
-  };
-
-  muzz.prototype.joinActivity = function(userToken, activityId, callback){
-    var muzzleyConnection = new lib(options);
-    muzzleyConnection.joinActivity(userToken, activityId, callback);
-  };
-
-  return new muzz();
-})(lib, options);
-
-
-
-
-
-},{"muzzley-sdk-js":"muzzley-sdk-js"}],3:[function(require,module,exports){
 // TODO refactor the code and the saveRequest shouldn't be on the prototype
 
 
@@ -2431,7 +2403,11 @@ rpcManager.prototype.handleResponse = function (message) {
     var entry = this.requests[correlationId];
     clearTimeout(entry.timeout);
     delete this.requests[correlationId];
-    entry.callback(null, message);
+
+    //Check if the message is an error
+    if (message.s === false) return entry.callback(message.m);
+
+    return entry.callback(null, message);
   }
 
 };
@@ -2489,7 +2465,7 @@ rpcManager.prototype.makeRequest = function (message, responseCallback){
 
 module.exports = rpcManager;
 
-},{}],4:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 function remoteCalls (socket, rpcManager, options) {
   // TODO implement options if passed
   this.rpcManager = rpcManager;
@@ -2537,6 +2513,17 @@ remoteCalls.prototype.authUser = function (token, callback){
   this.rpcManager.makeRequest(msg, callback);
 };
 
+remoteCalls.prototype.widgetData= function (data){
+  var msg = {
+    h: {
+      t: 5
+    },
+    a: 'signal',
+    d: data
+  };
+  console.log(JSON.stringify(msg));
+  this.sock.send(JSON.stringify(msg));
+};
 
 remoteCalls.prototype.createActivity = function (activityId, callback){
   var msg = {
@@ -2618,7 +2605,51 @@ remoteCalls.prototype.sendSignal = function (actionObj){
 };
 
 module.exports = remoteCalls;
-},{}],"muzzley-sdk-js":[function(require,module,exports){
+},{}],4:[function(require,module,exports){
+var Eventify = require('eventify');
+var muzzleySDK = require('muzzley-sdk-js');
+
+var options = {
+  socket: SockJS,
+  endPoint:'http://platform.geo.muzzley.com/web'
+};
+
+muzzley = (function(muzzleySDK, options){
+  var muzz = function() {};
+
+  if (!window.console) {
+    window.console = {
+      log : function() {}
+    };
+  }
+
+  muzz.prototype.createActivity = function(opts, callback){
+    var muzzleyConnection = new muzzleySDK(options);
+    muzzleyConnection.createActivity(opts, callback);
+    muzzleyConnection.on('error', function(err){
+      muzz.trigger('error', err);
+    });
+  };
+
+  muzz.prototype.joinActivity = function(userToken, activityId, callback){
+    var muzzleyConnection = new muzzleySDK(options);
+    muzzleyConnection.joinActivity(userToken, activityId, callback);
+    muzzleyConnection.on('error', function(err){
+      muzz.trigger('error', err);
+    });
+  };
+
+  var returnValue = new muzz();
+  //Enable events on the module
+  Eventify.enable(returnValue);
+  return returnValue;
+})(muzzleySDK, options);
+
+
+
+
+
+},{"muzzley-sdk-js":"muzzley-sdk-js","eventify":5}],"muzzley-sdk-js":[function(require,module,exports){
 module.exports=require('hdMu9z');
 },{}],"hdMu9z":[function(require,module,exports){
 var rpcManager = require('./rpcManager.js');
@@ -2628,15 +2659,17 @@ var Eventify = require('eventify');
 
 function Muzzley (options) {
   var _this = this;
+  Eventify.enable(_this);
   // TODO implement options if passed
 
   _this.endPoint = options.endPoint;
   _this.socket = options.socket;
   _this.logMessages = options.logMessages || true;
-  _this.logSocketData = options.logSocketData || false;
+  _this.logSocketData = options.logSocketData || true;
   _this.participants = [];
   _this.activity = undefined;
   _this.user = undefined;
+
   return _this;
 
 }
@@ -2652,7 +2685,8 @@ Muzzley.prototype.createActivity = function(opts, callback){
     if (opts.token)  options.token = opts.token;
     if (opts.activityId)  options.activityId = opts.activityId;
   } else {
-    return callback('err');
+    _this.trigger('error', 'Error: wrong parameters');
+    return callback('Error: wrong parameters');
   }
 
   _this.socket = new _this.socket(_this.endPoint);
@@ -2663,14 +2697,17 @@ Muzzley.prototype.createActivity = function(opts, callback){
 
     if(_this.logMessages) console.log('##Activity: sending handShake');
     _this.remoteCalls.handShake(function(err, response){
+      if (err) return callback(err);
       if(_this.logMessages) console.log('##Activity: handshaked');
 
       if(_this.logMessages) console.log('##Activity: sending authApp');
       _this.remoteCalls.authApp(options.token, function(err, response){
+        if (err) return callback(err);
         if(_this.logMessages) console.log('##Activity: Authenticaded');
 
         if(_this.logMessages) console.log('##Activity: sending createActivity');
         _this.remoteCalls.createActivity(options.activityId, function(err, response){
+          if (err) return callback(err);
           if(_this.logMessages) console.log('##Activity: Activity Created');
 
           //Create the activity object
@@ -2701,6 +2738,11 @@ Muzzley.prototype.createActivity = function(opts, callback){
 
   };
 
+  _this.socket.onerror = function(err)  {
+    _this.trigger('error', err);
+  };
+
+  return;
 };
 
 
@@ -2716,13 +2758,17 @@ Muzzley.prototype.joinActivity = function(userToken, activityId, callback){
     if(_this.logMessages) console.log('##User: sending handShake');
 
     _this.remoteCalls.handShake(function(err, response){
+      if (err) return callback(err);
       if(_this.logMessages) console.log('##User: handShaked');
       if(_this.logMessages) console.log('##User: sending authUser');
-      _this.remoteCalls.authUser(userToken, function(err, response){
-        if(_this.logMessages) console.log('##User: user Authenticaded');
 
+      _this.remoteCalls.authUser(userToken, function(err, response){
+        if (err) return callback(err);
+        if(_this.logMessages) console.log('##User: user Authenticaded');
         if(_this.logMessages) console.log('##User: sending joinActivity');
+
         _this.remoteCalls.joinActivity(activityId, function(err, response){
+          if (err) return callback(err);
           if(_this.logMessages) console.log('##User: joined Activity');
 
           //Create the participant object
@@ -2757,7 +2803,7 @@ Muzzley.prototype.joinActivity = function(userToken, activityId, callback){
 
 
 module.exports = Muzzley;
-},{"./rpcManager.js":3,"./remoteCalls.js":4,"./messageHandler.js":5,"eventify":6}],6:[function(require,module,exports){
+},{"./rpcManager.js":2,"./remoteCalls.js":3,"./messageHandler.js":6,"eventify":5}],5:[function(require,module,exports){
 (function(){// Eventify
 // -----------------
 // Copyright(c) 2010-2012 Jeremy Ashkenas, DocumentCloud
@@ -2972,7 +3018,7 @@ module.exports = Muzzley;
 // Establish the root object, `window` in the browser, or `global` on the server.
 }(this));
 })()
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 var Eventify = require('eventify');
 
 //Protocol message codes
@@ -3111,5 +3157,5 @@ module.exports = function (message) {
     }
   }
 };
-},{"eventify":6}]},{},[1,2])
+},{"eventify":5}]},{},[1,4])
 ;

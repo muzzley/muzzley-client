@@ -2,11 +2,18 @@ var muzzley = require('../lib/node-dist.js');
 
 
 console.log('##Activity: creating activity');
+
+
+muzzley.on('error', function(err){
+  console.log(err.toString());
+});
+
 muzzley.createActivity('muzzlionaire', function(err, activity){
+
   if (err) return console.log("err: " + err );
 
   muzzley.joinActivity('muzdev', activity.activityId, function(err, paticipant){
-
+    if (err) return console.log("err: " + err );
     //console.log(paticipant);
     console.log('##User joinedActivity');
     paticipant.on('changeWidget', function(widget){
@@ -27,6 +34,7 @@ muzzley.createActivity('muzzlionaire', function(err, activity){
     console.log('##Activity: sending changeWidget');
 
     participant.changeWidget('gamepad', function (err) {
+      if (err) return console.log("err: " + err );
       console.log('##Activity: recived changeWidget okay');
 
       participant.on('quit', function (action) {
