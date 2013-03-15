@@ -31,7 +31,7 @@ You need add a dependecie called `muzzley-sdk-js` that points to our private rep
 
 ```
 var muzzley = require('muzzley-sdk-js');
-muzzley.createActivity('asd', function(err, activity){
+muzzley.connectApp('asd', function(err, activity){
 
   console.log(activity);
   console.log('activityCreated');

@@ -1,29 +1,25 @@
+var argv = require('optimist').argv;
 var muzzley = require('../lib/node-dist.js');
 
+//Catch the app token passed 
+var appToken = argv.t ? argv.t : 'muzzlionaire';
 
+console.log(appToken);
 console.log('##Activity: creating activity');
 
-
+//Catch error events
 muzzley.on('error', function(err){
   console.log(err.toString());
 });
 
-muzzley.connectApp('muzzlionaire', function(err, activity){
+muzzley.connectApp(appToken, function(err, activity){
 
   if (err) return console.log("err: " + err );
 
-  muzzley.joinActivity('muzdev', activity.activityId, function(err, paticipant){
-    if (err) return console.log("err: " + err );
-    //console.log(paticipant);
-    console.log('##User joinedActivity');
-    paticipant.on('changeWidget', function(widget){
-      console.log('##User changeWidget recived');
-    });
-
-  });
-
   console.log('##Activity: activityCreated');
+  console.log('##Activity Settings:');
   console.log(activity);
+ 
   activity.on('participantQuit', function(participant){
     console.log('##Activity: "EVENT" participantQuit');
   });
