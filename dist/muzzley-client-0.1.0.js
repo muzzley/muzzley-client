@@ -2518,7 +2518,6 @@ remoteCalls.prototype.widgetData= function (data){
     a: 'signal',
     d: data
   };
-  console.log(JSON.stringify(msg));
   this.sock.send(JSON.stringify(msg));
 };
 
@@ -2666,8 +2665,8 @@ function Muzzley (options) {
 
   _this.endPoint = options.endPoint;
   _this.socket = options.socket;
-  _this.logMessages = options.logMessages || false;
-  _this.logSocketData = options.logSocketData || false;
+  _this.logMessages = options.logMessages || true;
+  _this.logSocketData = options.logSocketData || true;
   _this.participants = [];
   _this.activity = undefined;
   _this.user = undefined;
@@ -2684,7 +2683,6 @@ function Muzzley (options) {
 
 Muzzley.prototype.createActivity = function(opts, callback){
   var _this = this;
-
 
   //prepare "options" passed on arguments as "opts"
   var options = {};
@@ -2811,7 +2809,8 @@ Muzzley.prototype.joinActivity = function(userToken, activityId, callback){
   };
 
   _this.socket.onclose = function()  {
-
+    _this.trigger('error', 'Connection Lost');
+    _this.trigger('disconnect', 'Connection Lost');
   };
 
   _this.socket.onerror = function(err)  {

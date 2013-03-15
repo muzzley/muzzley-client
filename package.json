@@ -1,5 +1,5 @@
 {
-  "name": "muzzley-sdk-js",
+  "name": "muzzley-client",
   "version": "0.1.0",
   "private": true,
   "main": "lib/node-dist.js",
