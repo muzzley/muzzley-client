@@ -2463,7 +2463,9 @@ rpcManager.prototype.makeRequest = function (message, responseCallback){
 
 module.exports = rpcManager;
 
-},{}],3:[function(require,module,exports){function remoteCalls (socket, rpcManager, options) {
+},{}],3:[function(require,module,exports){
+
+function remoteCalls (socket, rpcManager, options) {
   // TODO implement options if passed
   this.rpcManager = rpcManager;
   this.socket = socket;
@@ -2575,17 +2577,23 @@ remoteCalls.prototype.sendReady = function (callback) {
   this.rpcManager.makeRequest(msg, callback);
 };
 
-remoteCalls.prototype.successResponse = function (type, cid, pid){
+remoteCalls.prototype.successResponse = function (originalHeader){
+  //Protocol message codes
+  var MESSAGE_TYPE_REQUEST = 1;
+  var MESSAGE_TYPE_RESPONSE = 2;
+  var MESSAGE_TYPE_REQUEST_CORE = 3;
+  var MESSAGE_TYPE_RESPONSE_CORE = 4;
+  var MESSAGE_TYPE_SIGNAL = 5;
+
   var msg = {
-    h: {t: type, cid: cid},
+    h: originalHeader,
     s: true
   };
-
-  if (pid) {
-    msg.h.pid = pid;
+  if (originalHeader.t === MESSAGE_TYPE_REQUEST) {
+    msg.h.t = MESSAGE_TYPE_RESPONSE;
+  } else if (originalHeader.t === MESSAGE_TYPE_REQUEST_CORE) {
+    msg.h.t = MESSAGE_TYPE_RESPONSE_CORE;
   }
-
-  //console.log(msg);
   this.socket.send(JSON.stringify(msg));
 };
 
@@ -2612,6 +2620,7 @@ var options = {
 muzzley = (function(muzzleySDK, options){
   var muzz = function() {};
 
+  //Console.log fallback to prevent errors
   if (!window.console) {
     window.console = {
       log : function() {}
@@ -2627,6 +2636,9 @@ muzzley = (function(muzzleySDK, options){
       muzz.trigger('error', err);
     });
 
+    muzzleyConnection.on('disconnect', function(err){
+      muzz.trigger('disconnect', err);
+    });
   };
 
 
@@ -2656,9 +2668,9 @@ function Muzzley (options) {
 
   _this.endPoint = options.endPoint;
   _this.socket = options.socket;
-  _this.logMessages = options.logMessages || true;
-  _this.logSocketData = options.logSocketData || true;
-  _this.participants = [];
+  _this.logMessages = options.logMessages || false;
+  _this.logSocketData = options.logSocketData || false;
+  _this.participants = {};
   _this.activity = undefined;
   _this.user = undefined;
 
@@ -3051,7 +3063,6 @@ module.exports = function (message) {
       message = JSON.parse(message.data);
     } catch (e) {
       console.log('Received an invalid non-JSON message. Ignoring.');
-      //console.log(e);
       return;
     }
   }
@@ -3066,19 +3077,15 @@ module.exports = function (message) {
 
     if (message.d.w === 'hb') {
       //{"h":{"t":5},"a":"signal","d":{"w":"hb","c":"hb","v":"hb","e":"hb"}}
-      if(_this.logMessages) console.log('##Activity heartBeat');
+      _this.log('##Activity heartBeat');
       return;
     }
-    // loop trought all participants 
-    _this.participants.forEach(function(participant){
+    //Find the participant who sent the signal
+    if (_this.participants[message.h.pid]){
 
-      //Find the participant who sent the signal
-      if (participant.id === message.h.pid){
-
-        //Emit the action of the participant
-        participant.trigger('action', message.d);
-      }
-    });
+      //Emit the action of the participant
+      _this.participants[message.h.pid].trigger('action', message.d);
+    }
   }
 
 
@@ -3086,7 +3093,7 @@ module.exports = function (message) {
   if (message.h.t  === MESSAGE_TYPE_REQUEST_CORE){
     // if is a participant join 
     if (message.a ==='participantJoined'){
-      if(_this.logMessages) console.log('##Activity: Recived ParticipantJoined');
+      _this.log('##Activity: Recived ParticipantJoined');
       //Create a new partcipant object
       var participant  = (function (_this) {
         return {
@@ -3094,7 +3101,7 @@ module.exports = function (message) {
           name: message.d.participant.name,
           photoUrl: message.d.participant.photoUrl,
           changeWidget:function(widget, callback) {
-            if(_this.logMessages) console.log('##Activity request to changeWidget');
+            _this.log('##Activity request to changeWidget');
             _this.remoteCalls.changeWidget(widget, this.id, callback);
           }
         };
@@ -3103,36 +3110,33 @@ module.exports = function (message) {
       // Enable Events on activity
       Eventify.enable(participant);
 
-      //Save the participant to participants array
-      _this.participants.push(participant);
+      //Save the participant to participants
+      _this.participants[participant.id] = participant;
 
       // Reply to the server with a success Response
       //
       // ATTENTION:doesnt emit the 'participantJoin' event 
       // it will be triggered down on a MESSAGE_TYPE_REQUEST event from the server
-      if(_this.logMessages) console.log('##Activity: Sending joined Notification');
-      return _this.remoteCalls.successResponse(MESSAGE_TYPE_RESPONSE_CORE, message.h.cid, participant.id);
+      _this.log('##Activity: Sending joined Notification');
+      return _this.remoteCalls.successResponse(message.h);
     }
 
     // If is a participant quit
     if (message.a ==='participantQuit'){
 
-      // Loop trought all participants
-      _this.participants.forEach(function(participant){
+      // Find the participant who quited the activity
+      if (_this.participants[message.d.participantId]){
 
-        // Find the participant who quited the activity
-        if (participant.id === message.d.participantId){
+        // override changeWidget method
+        _this.participants[message.d.participantId].changeWidget = function(){
+          return "participant allready quited activity";
+        };
 
-          // override changeWidget method
-          participant.changeWidget = function(){
-            return "participant allready quited activity";
-          };
+        // Emit the quit event
+        _this.participants[message.d.participantId].trigger('quit', message.a);
+        return _this.activity.trigger('participantQuit', _this.participants[message.d.participantId]);
+      }
 
-          // Emit the quit event
-          participant.trigger('quit', message.a);
-          return _this.activity.trigger('participantQuit', participant);
-        }
-      });
     }
   }
 
@@ -3143,27 +3147,27 @@ module.exports = function (message) {
 
       // if is a ready signal of the 'participantJoin'
       if (message.d.a === 'ready'){
-        if(_this.logMessages) console.log('##Activity: Participant Ready Notification Received');
-        //loop trought all participants to Find the participant object to trigger the event of 'participantJoin'
-        _this.participants.forEach(function(participant){
-          // check the pid with our participant
-          if (participant.id === message.h.pid){
-            // Send a success response back
-            if(_this.logMessages) console.log('##Activity: Sending Ready Notification Response');
-            _this.remoteCalls.successResponse(MESSAGE_TYPE_RESPONSE, message.h.cid, message.h.pid);
-            // Emit the 'participantJoin' event
-            if(_this.logMessages) console.log('##Activity: trigger "participantJoin" event');
-            return _this.activity.trigger('participantJoin', participant);
-          }
-        });
+        _this.log('##Activity: Participant Ready Notification Received');
+
+        //Find the participant object to trigger the event of 'participantJoin'
+        // check the pid with our participant
+        if (_this.participants[message.h.pid]){
+          // Send a success response back
+          _this.log('##Activity: Sending Ready Notification Response');
+          _this.remoteCalls.successResponse(message.h);
+          // Emit the 'participantJoin' event
+          _this.log('##Activity: trigger "participantJoin" event');
+          return _this.activity.trigger('participantJoin', _this.participants[message.h.pid]);
+        }
+
       }
 
       if (message.d.a === 'changeWidget') {
-        if(_this.logMessages) console.log('##User: Recived changeWidget request');
-        if(_this.logMessages) console.log('##User: Sending changeWidget success Response');
-        _this.remoteCalls.successResponse(MESSAGE_TYPE_RESPONSE, message.h.cid);
+        _this.log('##User: Recived changeWidget request');
+        _this.log('##User: Sending changeWidget success Response');
+        _this.remoteCalls.successResponse(message.h);
 
-        if(_this.logMessages) console.log('##User: trigger "changeWidget" event');
+        _this.log('##User: trigger "changeWidget" event');
         return _this.user.trigger('changeWidget', message.d.d);
       }
 
