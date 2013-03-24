@@ -31,29 +31,27 @@ You need add a dependecie called `muzzley-sdk-js` that points to our private rep
 
 ```
 var muzzley = require('muzzley-sdk-js');
-muzzley.connectApp('asd', function(err, activity){
-
-  console.log(activity);
+muzzley.connectApp('asd', function (err, activity) {
+  // The `activity` object contians the activity's id
+  // and a ready-to-use QR code image to be displayed
   console.log('activityCreated');
+  console.log(activity);
 
-
-  activity.on('participantQuit', function(participant){
+  activity.on('participantQuit', function (participant) {
     console.log('participantQuit');
   });
-  activity.on('participantJoin', function(participant){
+
+  activity.on('participantJoin', function (participant) {
     console.log(participant);
     participant.changeWidget('gamepad', function (err) {
       console.log('changeWidget');
 
-      participant.on('quit', function (action) {
-        // Action object represents the participants interaction
-        console.log('asd');
-        console.log(action);
+      participant.on('quit', function () {
+        // The participant quit the current activity
       });
 
-
       participant.on('action', function (action) {
-        // Action object represents the participants interaction
+        // The `action` object represents the participant's interaction
         console.log(action);
       });
     });
