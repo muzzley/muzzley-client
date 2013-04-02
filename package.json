@@ -1,0 +1,24 @@
+{
+  "name": "muzzley-client",
+  "version": "0.1.0",
+  "author": "muzzley <support@muzzley.com>",
+  "description": "The muzzley client library",
+  "main": "lib/node-dist.js",
+  "dependencies": {
+    "eventify": "0.3.x",
+    "ws":"0.4.x"
+  },
+  "keywords": [
+    "muzzley",
+    "realtime",
+    "real-time",
+    "websockets",
+    "cloud",
+    "interaction",
+    "remote-control"
+  ],
+  "engines": {
+    "node": ">=0.8"
+  },
+  "license": "MIT"
+}
