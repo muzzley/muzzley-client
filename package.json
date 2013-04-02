@@ -8,6 +8,10 @@
     "eventify": "0.3.x",
     "ws":"0.4.x"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/muzzley/muzzley-client.git"
+  },
   "keywords": [
     "muzzley",
     "realtime",
