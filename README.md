@@ -7,7 +7,7 @@ This document describes how to use the muzzley client library.
 To use the library you first need to add it to your project:
 
 ```
-npm install winston
+npm install muzzley-client
 ```
 
 ## Usage
