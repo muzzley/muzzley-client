@@ -96,7 +96,7 @@ The `activity` object is returned in the callback of the `muzzley.connectApp` fu
 }
 ```
 
-The `activity` object is also an `EventEmitter`. You can listen the following events:
+The `activity` object is also an `EventEmitter`. You can listen to the following events:
 
 ```
 function callback(err, activity) {
@@ -152,7 +152,7 @@ participant.on('quit', function () {
 
 ### muzzley.changeWidget()
 
-The `changeWidget` method instructs the participant's device (smartphone) to transform itself into the given widget identifier. After a succesful transformation or if some error occurs, the `callback` argument is called.
+The `changeWidget` method instructs the participant's device (smartphone) to transform itself into the given widget identifier. After a successful transformation - or if some error occurs - the `callback` argument is called.
 
 ```
 participant.changeWidget('widget identifier', callback);
