@@ -17,7 +17,7 @@ The following code snippet shows how to quickly get started with the muzzley cli
 ```
 var muzzley = require('muzzley-client');
 
-muzzley.connectApp('yourAppToken', function(err, activity){
+muzzley.connectApp('yourAppToken', function(err, activity) {
   if (err) return console.log("err: " + err);
   console.log(activity);
 
@@ -26,7 +26,7 @@ muzzley.connectApp('yourAppToken', function(err, activity){
 
     participant.changeWidget('gamepad', function(err) {
       if (err) return console.log("err: " + err );
-      console.log('Activity: recived changeWidget okay');
+      console.log('Activity: changeWidget was successful');
 
       participant.on('quit', function() {
         console.log('quit');
@@ -54,9 +54,9 @@ Creates a new muzzley instance.
 
 ## Events
 
-The muzzley instance is an `EventEmitter` and you can listen for the fowllowing events:
+The muzzley instance is an `EventEmitter` and you can listen to the following events:
 
-`error` This event is emmited everytime an error happens during your activity.
+`error` This event is emitted every time an error occurs during the activity.
 
 ```
 muzzley.on('error', function(err) {
@@ -66,14 +66,14 @@ muzzley.on('error', function(err) {
 
 ## Methods
 
-### muzzley.connectApp
+### muzzley.connectApp()
 
 This method connects your app with the muzzley platform and creates an activity.
 
 The simple way to use it, is just passing your application `token` which you can get from www.muzzley.com.
 
 ```
-var token = '123sda';
+var token = 'yourAppToken';
 muzzley.connectApp(token, callback);
 ```
 
@@ -81,21 +81,22 @@ The `callback` function will receive an `err` and an `activity` object.
 
 ```
 function callback(err, activity) {
-  
+
 }
 ```
+
 #### activity
 
-The `activity` object is returned on the callback function of the `muzzley.connectApp` and will have your activity settings:
+The `activity` object is returned in the callback of the `muzzley.connectApp` function and will have the activity's properties:
 
 ```
-{ 
+{
   activityId: '940232',
-  qrCodeUrl: 'http://alpha.muzzley.com/qrcode/940232' 
+  qrCodeUrl: 'http://alpha.muzzley.com/qrcode/940232'
 }
 ```
 
-The `activity` is also an `EventEmitter`. You can listen the fowlloing events:
+The `activity` object is also an `EventEmitter`. You can listen the following events:
 
 ```
 function callback(err, activity) {
@@ -105,11 +106,11 @@ function callback(err, activity) {
 }
 ```
 
-`'participantJoin'` This event is emmited everytime a user joins your activity.
+`'participantJoin'` This event is emitted every time a user joins the activity.
 
-`'participantQuit'` This event is emmited everytime a user quits your activity.
+`'participantQuit'` This event is emitted when a user quits the activity.
 
-Each of this event functions will recive a `participant` object.
+Each of these event functions will receive a `participant` object.
 
 ```
 function join(participant) {
@@ -123,10 +124,10 @@ function quit(participant) {
 
 #### participant
 
-The `participant` object will have your participant settings:
+The `participant` object will have the activity participant's properties:
 
 ```
-{ 
+{
   id: 1,
   name: 'Participant Name',
   photoUrl: 'http://example.com/picture.jpg'
@@ -145,10 +146,20 @@ participant.on('quit', function () {
 });
 ```
 
-`action` This event is emitted everytime a participant interacts and recives an action object that represents the participant's interaction.
+`action` This event is emitted every time a participant interacts and receives an `action` object that represents the participant's interaction.
 
-`quit` This event is emitted when the participant quits your activity.
+`quit` This event is emitted when the participant quits the activity.
+
+### muzzley.changeWidget()
+
+The `changeWidget` method instructs the participant's device (smartphone) to transform itself into the given widget identifier. After a succesful transformation or if some error occurs, the `callback` argument is called.
+
+```
+participant.changeWidget('widget identifier', callback);
+```
+
+The possible widgets are referenced in the muzzley documentation at http://www.muzzley.com/documentation
 
 ## Tests
 
-Comming soon.
+Coming soon.
