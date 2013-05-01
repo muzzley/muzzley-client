@@ -1,4 +1,4 @@
-# muzzley-sdk-js
+# Muzzley JavaScript Library
 
 **Version: 0.2.0 Draft**
 
@@ -197,6 +197,23 @@ The `participant` object will have the participant's properties:
   photoUrl: 'http://graph.facebook.com/618907828/picture?type=large'
 }
 ```
+
+To order a participant to transform into a given widget, the `changeWidget` method can be called on the `participant` object.
+
+```
+participant.changeWidget('switch', function (err) {
+
+});
+```
+
+If the widget can receive parameters, they can be passed as an object in the second argument.
+
+```
+participant.changeWidget('switch', {'isOn': 1}, function (err) {
+
+});
+```
+
 
 The `participant` is also an event-emitter, and you need can listen the fowlloing events:
 
