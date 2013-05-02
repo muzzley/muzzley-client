@@ -1,1 +1,1 @@
-var muzzley = require('muzzley-sdk-js');
+var muzzley = require('muzzley-client');
