@@ -5,9 +5,9 @@
   "main": "lib/node-dist.js",
   "browser": "lib/index.js",
   "dependencies": {
-    "browserify": "*",
-    "eventify": "*",
-    "ws":"*",
+    "browserify": "2.x.x",
+    "eventify": "0.3.4",
+    "ws":"0.4.25",
     "uglify-js":"1.3.4"
   }
 }
