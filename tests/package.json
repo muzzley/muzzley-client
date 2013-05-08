@@ -5,10 +5,12 @@
   "main": "lib/main.js",
   "dependencies": {
     "browserify": "*",
+    "express":"*",
     "uglify-js":"1.3.4",
     "ecstatic": "*",
     "optimist": "*",
     "muzzley-client":"git+ssh://git@bitbucket.org:muzzley/muzzley-sdk-js.git#feature/debugger",
-    "sockjs-client" : "git://github.com/substack/sockjs-client.git#browserify-npm"
+    "sockjs-client" : "git://github.com/substack/sockjs-client.git#browserify-npm",
+    "browserify-middleware": "*"
   }
 }
