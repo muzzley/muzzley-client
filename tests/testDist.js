@@ -11,6 +11,10 @@ var app = express();
 app.use(express.static('./public'));
 app.get('/test.js', browserify('./browserify.js'));
 
+app.get('/testStream.js', browserify('./testStreams.js'));
+
+app.get('/testMiddleware.js', browserify('./testMiddleware.js'));
+
 
 
 http.createServer(app).listen(8080);
