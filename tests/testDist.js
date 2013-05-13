@@ -14,6 +14,7 @@ app.get('/test.js', browserify('./browserify.js'));
 app.get('/testStream.js', browserify('./testStreams.js'));
 
 app.get('/testMiddleware.js', browserify('./testMiddleware.js'));
+app.get('/testMiddleware2.js', browserify('./testMiddleware2.js'));
 
 
 
