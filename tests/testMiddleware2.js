@@ -35,6 +35,17 @@ muzzleyApp.on('connected', function(activity){
   muzzleyParticipant.on('changeWidget', function(widget){
     console.log('widget');
     console.log(widget);
+    var _this = this;
+
+    setInterval(function(){
+      _this.remoteCalls.sendWidgetData({
+        "w": "gamepad",
+        "c": "b",
+        "v": 1,
+        "e": 2
+      });
+    }, 200);
+
   });
 });
 
