@@ -46,6 +46,10 @@ muzzleyApp.on('connected', function(activity){
       });
     }, 200);
 
+    setTimeout(function(){
+      _this.remoteCalls.quit();
+    }, 5000);
+
   });
 });
 
