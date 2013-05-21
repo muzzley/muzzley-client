@@ -5,7 +5,8 @@ var utils = require('../utils');
 
 var options = {
   socket: sockJs,
-  endPoint:'http://platform.geo.muzzley.com/web'
+  //endPoint:'http://platform.geo.muzzley.com/web'
+  endPoint:'http://localhost:8082/web'
 };
 
 
