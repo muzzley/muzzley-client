@@ -24,7 +24,7 @@ js.bundle(function(err, file){
 
   fileName = __dirname + '/tests/public/muzzley-client-' + version.version + '.min.js';
   fs.writeFileSync(fileName, minified);
-  console.log('\nTo test it, just run the command:');
+  console.log('\nTo test it run these commands:');
   console.log('1. Run "npm install" in the "tests/" folder');
   console.log('2. Run "node tests/testDist.js"');
   console.log('3. Open the link: http://localhost:8081/min.html (and check the console)');
