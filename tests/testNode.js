@@ -1,4 +1,4 @@
-var muzzley = require('../lib/node-dist.js');
+var muzzley = require('../lib/dist-node.js');
 
 
 console.log('##Activity: creating activity');

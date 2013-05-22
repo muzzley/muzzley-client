@@ -7,7 +7,7 @@ var version = require('./package.json');
 var js = browserify(['./vendor/sockjs.js']);
 js.require('./lib/', {expose:'muzzley-sdk-js'});
 
-js.add('./lib/browser-dist.js');
+js.add('./lib/dist-browser.js');
 
 js.bundle(function(err, file){
 
@@ -26,6 +26,6 @@ js.bundle(function(err, file){
   fs.writeFileSync(fileName, minified);
   console.log('\nTo test it, just run the command:');
   console.log('1. Run "npm install" in the "tests/" folder');
-  console.log('2. Run "node tests/testDist.js"');
-  console.log('3. Open the link: http://localhost:8081/min.html (and check the console)');
+  console.log('2. Run "node testDist.js" in the "tests/" folder');
+  console.log('3. Open the link: http://localhost:8080/min.html (and check the console)');
 });

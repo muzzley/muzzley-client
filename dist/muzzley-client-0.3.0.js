@@ -2377,55 +2377,102 @@ if (typeof define === 'function' && define.amd) {
 
 // [*] End of lib/all.js
 })()
-},{}],2:[function(require,module,exports){// TODO refactor the code and the saveRequest shouldn't be on the prototype
-
-
-function rpcManager (socket, options) {
-  // TODO implement options if passed
-  this.TIMEOUT = 5000;
-  this.socket = socket;
-  this.cidCount = 0;
-  this.requests = {};
+},{}],2:[function(require,module,exports){function compose () {
+  var funx = [].slice.call(arguments)
+  if(funx.length <= 1)
+    return funx[0]
+  var f1 = funx.shift()
+  var f2 = funx.shift()
+  
+  funx.unshift(function () {
+    var args = [].slice.call(arguments)
+    var callback = args.pop()
+    args.push(function () {
+      var args = [].slice.call(arguments)
+      args.push(callback)    
+      f2.apply(_this, args)   
+    })
+    var _this = this;
+    f1.apply(_this, args)   
+  })
+  return compose.apply(null, funx)
 }
 
-rpcManager.prototype.handleResponse = function (message) {
-
-  if (!message || !message.h || typeof message.h.cid === 'undefined') {
-    // No Correlation Id defined, nothing to do here...
-    return;
+module.exports = compose;
+},{}],3:[function(require,module,exports){
+//
+// heartBeat middleware
+//
+function hb(muzzData, next){
+  //console.log(muzzData);
+  // Just test if the message is well parsed or parsable
+  if (typeof muzzData.data !== 'object') {
+    try {
+      var dataParsed = JSON.parse(muzzData.data);
+    } catch (e) {
+      console.log(e.message);
+      return;
+    }
+    next(dataParsed);
   }
 
-  var correlationId = message.h.cid;
+}
 
-  if (correlationId in this.requests) {
-    var entry = this.requests[correlationId];
-    clearTimeout(entry.timeout);
-    delete this.requests[correlationId];
+module.exports = hb;
+},{}],4:[function(require,module,exports){var TIMEOUT = 5000;
+var cidCount = 0;
+var requests = {};
 
-    //Check if the message is an error
-    if (message.s === false) return entry.callback(message.m);
+//
+// rpcManager middleware
+//
+function rpcManager (socket, options) {
+  // TODO implement options if passed
+  this.socket = socket;
 
-    return entry.callback(null, message);
+}
+
+// 
+// rpcManager middlewareFunction
+//
+rpcManager.prototype.handleResponse = function (muzzData, next) {
+  var MESSAGE_TYPE_RESPONSE = 2;
+  //Verify if the muzzData is a response
+  if (muzzData.h.t  === MESSAGE_TYPE_RESPONSE){
+    if (!muzzData || !muzzData.h || typeof muzzData.h.cid === 'undefined') {
+      // No Correlation Id defined, nothing to do here...
+      return;
+    }
+
+    var correlationId = muzzData.h.cid;
+
+    if (correlationId in requests) {
+      var entry = requests[correlationId];
+      clearTimeout(entry.timeout);
+      delete requests[correlationId];
+
+      //Check if the message is an error
+      if (muzzData.s === false) return entry.callback(muzzData);
+      return entry.callback(null, muzzData);
+    }
+  }else{
+    next(muzzData);
   }
 
 };
-
-rpcManager.prototype.generateCid = function () {
-  return ++this.cidCount;
-};
-
-// SaveRequest to handle the callback or to throw a error if timeout
-rpcManager.prototype.saveRequest = function (correlationId, message, responseCallback){
+rpcManager.prototype.makeRequest = function (message, responseCallback){
   var _this = this;
 
+  // increment cid
+  var correlationId = cidCount +=  1;
 
   // Timeout 
   var tId = setTimeout(function (cid) {
     // If this ever gets called we didn't get a response in a timely fashion
     responseCallback(new Error("RPC Timeout @ cid " + cid));
     // delete the entry from hash
-    delete _this.requests[cid];
-  }, _this.TIMEOUT, correlationId);
+    delete requests[cid];
+  }, TIMEOUT, correlationId);
 
   // create a request entry to store in a hash
   var entry = {
@@ -2434,18 +2481,11 @@ rpcManager.prototype.saveRequest = function (correlationId, message, responseCal
   };
 
   // Put the entry in the hash so we can match the response later
-  _this.requests[correlationId] = entry;
+  requests[correlationId] = entry;
 
-};
-
-// makeRequest function
-rpcManager.prototype.makeRequest = function (message, responseCallback){
-  var _this = this;
-  var correlationId = this.generateCid();
-
-  _this.saveRequest(correlationId, message, responseCallback); //save the request
 
   var MESSAGE_TYPE_REQUEST = 1;
+
   // Inject the Correlation Id into the message header
   // and set the message type as REQUEST (if not already set).
   message.h = message.h || {};
@@ -2457,62 +2497,365 @@ rpcManager.prototype.makeRequest = function (message, responseCallback){
   } else {
     _this.socket.send(message);
   }
-
-
 };
 
+
 module.exports = rpcManager;
+},{}],5:[function(require,module,exports){//Protocol message codes
+var MESSAGE_TYPE_REQUEST = 1;
+var MESSAGE_TYPE_RESPONSE = 2;
+var MESSAGE_TYPE_REQUEST_CORE = 3;
+var MESSAGE_TYPE_RESPONSE_CORE = 4;
+var MESSAGE_TYPE_SIGNAL = 5;
 
-},{}],3:[function(require,module,exports){
+//
+// PlayerJoin middleware
+//
+function playerAction(muzzData, next){
+  var _this = this;
+  // if is a ready signal of the 'participantJoin'
+  if (muzzData.h.t  === MESSAGE_TYPE_SIGNAL && muzzData.h.pid){
+    //Check if the player exists
+    if(_this.participants[muzzData.h.pid]){
+      _this.participants[muzzData.h.pid].trigger('action', muzzData.d);
+      next(muzzData);
+    }
 
-function remoteCalls (socket, rpcManager, options) {
-  // TODO implement options if passed
-  this.rpcManager = rpcManager;
+  }else{
+    next(muzzData);
+  }
+
+}
+
+module.exports = playerAction;
+},{}],6:[function(require,module,exports){//Protocol message codes
+var MESSAGE_TYPE_REQUEST = 1;
+var MESSAGE_TYPE_RESPONSE = 2;
+var MESSAGE_TYPE_REQUEST_CORE = 3;
+var MESSAGE_TYPE_RESPONSE_CORE = 4;
+var MESSAGE_TYPE_SIGNAL = 5;
+
+//
+// PlayerQuit middleware
+//
+function playerQuit(muzzData, next){
+
+  var _this = this;
+  // if is a ready signal of the 'participantQuit'
+  if (muzzData.a ==='participantQuit'){
+    //Check if the player exists
+    if(_this.participants[muzzData.d.participantId]){
+
+      _this.participants[muzzData.d.participantId].trigger('quit', null);
+      _this.activity.trigger('participantQuit', _this.participants[muzzData.d.participantId]);
+
+      return;
+    }
+
+  }else{
+    next(muzzData);
+  }
+
+}
+
+module.exports = playerQuit;
+},{}],7:[function(require,module,exports){//Protocol message codes
+var MESSAGE_TYPE_SIGNAL = 5;
+
+//
+// PlayerJoin middleware
+//
+function btnA(muzzData, next){
+  var _this = this;
+  // if is a ready signal of the 'participantJoin'
+  if (muzzData.h.t  === MESSAGE_TYPE_SIGNAL && muzzData.h.pid){
+    //Check if the player exists
+    if(_this.participants[muzzData.h.pid]){
+      if (muzzData.d.e === 'press' && muzzData.d.c === 'ba' ){
+        _this.trigger('buttonA', _this.participants[muzzData.h.pid]);
+        return;
+      }
+    }
+
+  }else{
+    next(muzzData);
+  }
+
+}
+
+module.exports = btnA;
+},{}],8:[function(require,module,exports){//Protocol message codes
+var MESSAGE_TYPE_REQUEST = 1;
+var MESSAGE_TYPE_RESPONSE = 2;
+var MESSAGE_TYPE_REQUEST_CORE = 3;
+var MESSAGE_TYPE_RESPONSE_CORE = 4;
+var MESSAGE_TYPE_SIGNAL = 5;
+
+//
+// PlayerJoin middleware
+//
+function transformControl(muzzData, next){
+  var _this = this;
+  // if is a transform control unit request
+  if (muzzData.h.t  === MESSAGE_TYPE_REQUEST && muzzData.a === 'signal' && muzzData.d.a ==='changeWidget'){
+    //Check if the player exists
+    _this.remoteCalls.successResponse(muzzData.h);
+    _this.trigger('changeWidget', muzzData.d);
+    _this.participant.trigger('changeWidget', muzzData.d);
+  }else{
+    next(muzzData);
+  }
+
+}
+
+module.exports = transformControl;
+},{}],9:[function(require,module,exports){//Protocol message codes
+var MESSAGE_TYPE_REQUEST = 1;
+var MESSAGE_TYPE_RESPONSE = 2;
+var MESSAGE_TYPE_REQUEST_CORE = 3;
+var MESSAGE_TYPE_RESPONSE_CORE = 4;
+var MESSAGE_TYPE_SIGNAL = 5;
+
+//
+// Remotes calls
+function remoteCalls(socket, rpcManager){
   this.socket = socket;
+  this.rpcManager = rpcManager;
 }
 
 
-remoteCalls.prototype.handShake = function(callback){
+remoteCalls.prototype.successResponse = function(originalHeader){
 
   var msg = {
-    a: 'handshake',
+    h: originalHeader,
+    s: true
+  };
+
+  if (originalHeader.t === MESSAGE_TYPE_REQUEST) {
+    msg.h.t = MESSAGE_TYPE_RESPONSE;
+  } else if (originalHeader.t === MESSAGE_TYPE_REQUEST_CORE) {
+    msg.h.t = MESSAGE_TYPE_RESPONSE_CORE;
+  }
+
+  this.socket.send(JSON.stringify(msg));
+
+};
+
+remoteCalls.prototype.sendWidgetData= function (data){
+  var msg = {
+    h: {
+      t: MESSAGE_TYPE_SIGNAL
+    },
+    a: 'signal',
+    d: data
+  };
+
+  this.socket.send(JSON.stringify(msg));
+};
+
+remoteCalls.prototype.quit = function (data){
+  var quit = {
+    a: 'quit'
+  };
+
+  this.rpcManager.makeRequest(quit, function(err, muzzData){
+    console.log(muzzData);
+  });
+};
+
+/**
+ * Sends the `changeWidget` signaling message to one or multiple participants.
+ * function (widget[, params][, pid], callback).
+ *
+ * @param {string/object} widget   Either the widget's identifier or an object
+ *                                 that will be passed as is in the `d` (data)
+ *                                 parameter. Example:
+ *                                 {
+ *                                   "widget": "gamepad",
+ *                                   "params": {
+ *                                     "motion": true
+ *                                     "fireType": "proximity",
+ *                                     "step": 15,
+ *                                     "pitch": true,
+ *                                     "roll": true,
+ *                                     "yaw": true
+ *                                   },
+ *                                   "components": [
+ *                                     {
+ *                                       "c": "deviceMotion",
+ *                                       "p": {
+ *                                         "roll": true,
+ *                                         "pitch": false
+ *                                       }
+ *                                     }
+ *                                   ]
+ *                                 }
+ * @param {object} params          Optional. Defines the widget parametrization.
+ *                                 If the widget parametrization is also sent
+ *                                 in the `widget` parameter, this one overrides
+ *                                 it.
+ * @param {string} pid             Optional. The id of the participant that should
+ *                                 receive this message. If not provided it will
+ *                                 be sent to all participants.
+ * @param {function} callback      The function to be called when the participant's
+ *                                 response is received.
+ *
+ */
+remoteCalls.prototype.changeWidget = function (widget, params, pid, callback){
+  var msg = {
+    h: {},
+    a: 'signal',
     d: {
-      // Mandatory
-      protocolVersion: '1.0',
-      // All the following are optional and experimental
-      lib: 'nodejs',
-      userAgent: 'muzzley-sdk-js',
-      connection: 'LAN',
-      contentType: 'application/json'
+      a: 'changeWidget',
+      d: {}
     }
   };
+
+  if (typeof widget === 'string') {
+    // Define the widget name
+    msg.d.d.widget = widget;
+  } else if (typeof widget === 'object') {
+    // The whole `d` object was provided
+    msg.d.d = widget;
+  }
+
+  if (typeof params === 'object') {
+    // The `params` object has been provided
+    msg.d.d.params = params;
+  } else {
+    // `params` was not provided, shift the other arguments
+    callback = pid;
+    pid = params;
+  }
+
+  if (typeof pid === 'string' || typeof pid === 'number') {
+    // This message is intented for a single participant.
+    msg.h.pid = pid;
+  } else {
+    callback = pid;
+  }
 
   this.rpcManager.makeRequest(msg, callback);
 };
 
-remoteCalls.prototype.authApp = function (token, callback) {
+/**
+ * Setup (enable, disable, update) a component.
+ * It's a signaling message.
+ *
+ * componentExample = [
+ *   {
+ *     "c":"deviceMotion",
+ *     "id": "dm1",
+ *     "a": "enable",
+ *     "p": {
+ *       "roll": true,
+ *       "pitch": false
+ *     }
+ *   }
+ * ]
+ *
+ */
+remoteCalls.prototype.setupComponent = function (component, pid, callback){
   var msg = {
-    'a': 'loginApp',
-    'd': {
-      'token': token
-    }
-  };
-
-  this.rpcManager.makeRequest(msg, callback);
-};
-
-remoteCalls.prototype.authUser = function (token, callback){
-  var msg = {
-    a: 'loginUser',
+    h: {},
+    a: 'signal',
     d: {
-      token: token
+      a: 'setupComponent',
+      d: {}
     }
   };
+
+  if (typeof component === 'string') {
+    // A single component's name without any params provided
+    msg.d.d = {
+      c: component
+    };
+  } else if (typeof component === 'object') {
+    // The whole `d` object or an array of objects was provided
+    msg.d.d = component;
+  }
+
+  if (typeof pid === 'string' || typeof pid === 'number') {
+    // This message is intented for a single participant.
+    msg.h.pid = pid;
+  } else {
+    callback = pid;
+  }
 
   this.rpcManager.makeRequest(msg, callback);
 };
 
-remoteCalls.prototype.widgetData= function (data){
+/**
+ * Send a custom signal message to the remote endpoint.
+ *
+ * @param {object} data       The data object
+ * @param {function} callback Optional. function(err, response).
+ *                            If not provided, the message will be a
+ *                            fire-and-forget message. If provided,
+ *                            the message will be an RPC request and once
+ *                            the correct response is received or a timeout
+ *                            is reached, the callback will be called with
+ *                            the response.
+ */
+remoteCalls.prototype.sendSignal = function (data, pid, callback){
+  var msg  = {
+    h: {},
+    a: 'signal',
+    d: data
+  };
+
+  console.log('SEND SINGAL');
+  console.log(arguments);
+
+  if (typeof pid === 'string' || typeof pid === 'number') {
+    // This message is intented for a single participant.
+    msg.h.pid = pid;
+  } else {
+    callback = pid;
+  }
+
+  if (typeof callback === 'function') {
+    console.log('MAKING RPC REQUEST!');
+    this.rpcManager.makeRequest(msg, callback);
+  } else {
+    console.log('MAKING RPC REQUEST - NOT!');
+    msg.h.t = 5; // fire-and-forget
+    this.socket.send(JSON.stringify(msg));
+  }
+};
+
+module.exports = remoteCalls;
+},{}],10:[function(require,module,exports){//
+// Remotes calls
+function remoteCalls(socket, rpcManager){
+  this.socket = socket;
+  this.rpcManager = rpcManager;
+}
+
+
+remoteCalls.prototype.successResponse = function(originalHeader){
+  //Protocol message codes
+  var MESSAGE_TYPE_REQUEST = 1;
+  var MESSAGE_TYPE_RESPONSE = 2;
+  var MESSAGE_TYPE_REQUEST_CORE = 3;
+  var MESSAGE_TYPE_RESPONSE_CORE = 4;
+
+  var msg = {
+    h: originalHeader,
+    s: true
+  };
+
+  if (originalHeader.t === MESSAGE_TYPE_REQUEST) {
+    msg.h.t = MESSAGE_TYPE_RESPONSE;
+  } else if (originalHeader.t === MESSAGE_TYPE_REQUEST_CORE) {
+    msg.h.t = MESSAGE_TYPE_RESPONSE_CORE;
+  }
+
+  this.socket.send(JSON.stringify(msg));
+
+};
+
+remoteCalls.prototype.sendWidgetData= function (data){
   var msg = {
     h: {
       t: 5
@@ -2520,96 +2863,241 @@ remoteCalls.prototype.widgetData= function (data){
     a: 'signal',
     d: data
   };
-  this.sock.send(JSON.stringify(msg));
-};
 
-remoteCalls.prototype.createActivity = function (activityId, callback){
-  var msg = {
-    a: 'create',
-    d: {
-      protocolVersion: '1.0',
-      lib: 'js',
-      libVersion: '0.1',
-      activityId: activityId
-    }
-  };
-
-  this.rpcManager.makeRequest(msg, callback);
-};
-
-remoteCalls.prototype.joinActivity = function (activityId, callback){
-  var msg = {
-    a: 'join',
-    d: {
-      activityId: activityId
-    }
-  };
-
-  this.rpcManager.makeRequest(msg, callback);
-};
-
-
-remoteCalls.prototype.changeWidget = function (widget, pid, callback){
-  var msg = {
-    h: {
-      pid: pid
-    },
-    a: 'signal',
-    d: {
-      a: 'changeWidget',
-      d:{
-        widget: widget
-      }
-    }
-  };
-  this.rpcManager.makeRequest(msg, callback);
-};
-
-
-remoteCalls.prototype.sendReady = function (callback) {
-  var msg = {
-    'a': 'signal',
-    'd': {
-      'a': 'ready'
-    }
-  };
-
-  this.rpcManager.makeRequest(msg, callback);
-};
-
-remoteCalls.prototype.successResponse = function (originalHeader){
-  //Protocol message codes
-  var MESSAGE_TYPE_REQUEST = 1;
-  var MESSAGE_TYPE_RESPONSE = 2;
-  var MESSAGE_TYPE_REQUEST_CORE = 3;
-  var MESSAGE_TYPE_RESPONSE_CORE = 4;
-  var MESSAGE_TYPE_SIGNAL = 5;
-
-  var msg = {
-    h: originalHeader,
-    s: true
-  };
-  if (originalHeader.t === MESSAGE_TYPE_REQUEST) {
-    msg.h.t = MESSAGE_TYPE_RESPONSE;
-  } else if (originalHeader.t === MESSAGE_TYPE_REQUEST_CORE) {
-    msg.h.t = MESSAGE_TYPE_RESPONSE_CORE;
-  }
   this.socket.send(JSON.stringify(msg));
 };
 
-remoteCalls.prototype.sendSignal = function (actionObj){
-  var msg  = {
-    h: {
-      t: 5
-    },
-    a: 'signal',
-    d: actionObj
+remoteCalls.prototype.quit = function (data){
+  var quit = {
+    a: 'quit'
   };
-  this.socket.send(JSON.stringify(msg));
+
+  this.rpcManager.makeRequest(quit, function(err, muzzData){
+    console.log(muzzData);
+  });
 };
 
 module.exports = remoteCalls;
-},{}],4:[function(require,module,exports){var Eventify = require('eventify');
+},{}],"muzzley-sdk-js":[function(require,module,exports){module.exports=require('hdMu9z');
+},{}],"hdMu9z":[function(require,module,exports){var Eventify                = require('eventify');
+var compose                 = require('./utils/compose');
+
+//midlewares
+var hb                      = require('./middleware/heartBeat');
+var rpcManager              = require('./middleware/rpcManager');
+var playerJoin              = require('./middleware/playerJoin');
+var playerAction            = require('./middleware/playerAction');
+var playerQuit              = require('./middleware/playerQuit');
+var btnA                    = require('./middleware/btnA');
+var transformControl        = require('./middleware/transformControl');
+
+//remoteCalls
+var activityRemoteCalls     = require('./remoteCalls/activity');
+var participantRemoteCalls  = require('./remoteCalls/participant');
+
+var handshakeJSON = {
+  a: 'handshake',
+  d: {
+    // Mandatory
+    protocolVersion: '1.0',
+    // All the following are optional and experimental
+    lib: 'nodejs',
+    userAgent: 'muzzley-client',
+    connection: 'LAN',
+    contentType: 'application/json'
+  }
+};
+
+
+//
+// MAIN
+//
+
+function muzzMiddleware(options){
+
+  this.socket = options.socket;
+  this.endPoint = options.endPoint;
+
+  this.middleFunctions = [];
+  this.participants = {};
+
+
+  //Enable events for this muzzley instance
+  Eventify.enable(this);
+
+}
+muzzMiddleware.prototype.joinActivity = function(userToken, activityId, callback){
+  //remember this
+  var _this = this;
+
+  this._socket = new this.socket(this.endPoint);
+  this._socket.onopen = function()  {
+    //create rpcManager for this socket
+    _this.rpcManager = new rpcManager(_this._socket);
+    _this.remoteCalls = new participantRemoteCalls(_this._socket, _this.rpcManager);
+
+    //Configure default middlewares
+    _this.middleFunctions.push(hb);
+    _this.middleFunctions.push(_this.rpcManager.handleResponse);
+    _this.middleFunctions.push(transformControl);
+    _this.runMiddlewares = compose.apply(this, _this.middleFunctions);
+
+
+
+    _this.rpcManager.makeRequest(handshakeJSON, function(err, muzzData){
+
+      var authUser = {
+        a: 'loginUser',
+        d: {
+          token: userToken //TODO: Token passed in opts
+        }
+      };
+      _this.rpcManager.makeRequest(authUser, function(err, muzzData){
+
+        var joinActivity = {
+          a: 'join',
+          d: {
+            activityId: activityId
+          }
+        };
+
+        _this.rpcManager.makeRequest(joinActivity, function(err, muzzData){
+          //Create the participant object
+          var participant = {
+            id: muzzData.d.participant.id,
+            name: muzzData.d.participant.name,
+            photoUrl: muzzData.d.participant.photoUrl
+          };
+
+          var activity = {
+            id: activityId
+          };
+
+          // Enable Events on the participant
+          Eventify.enable(participant);
+
+          // Add the activity object to the current context _this
+          _this.participant = participant;
+
+          var sendReady = {
+            'a': 'signal',
+            'd': {
+              'a': 'ready'
+            }
+          };
+
+          _this.rpcManager.makeRequest(sendReady, function(err, muzzData){
+
+            _this.trigger("joined", null, _this.participant);
+            if (callback){
+              return callback(null, _this.participant);
+            }
+            else return ;
+          });
+
+
+        });
+
+      });
+    });
+
+  _this._socket.onmessage = function(message) {
+    _this.runMiddlewares(message, function (muzzData) {
+      console.log(muzzData);
+    });
+  };
+
+  };
+};
+
+
+muzzMiddleware.prototype.connectApp = function(opts, callback){
+  //remember this
+  var _this = this;
+
+  _this._socket = new this.socket(this.endPoint);
+  _this._socket.onopen = function()  {
+
+    //create rpcManager for this socket
+    _this.rpcManager = new rpcManager(_this._socket);
+    _this.remoteCalls = new activityRemoteCalls(_this._socket, _this.rpcManager);
+
+    //Configure default middlewares
+    _this.middleFunctions.push(hb);
+    _this.middleFunctions.push(_this.rpcManager.handleResponse);
+    _this.middleFunctions.push(playerJoin);
+    _this.middleFunctions.push(playerAction);
+    _this.middleFunctions.push(playerQuit);
+    _this.middleFunctions.push(btnA);
+
+
+
+
+    _this.runMiddlewares = compose.apply(this, _this.middleFunctions);
+
+
+    _this.rpcManager.makeRequest(handshakeJSON, function(err, muzzData){
+      //console.log(muzzData);
+      var loginApp = {
+        a: 'loginApp',
+        d: {
+          token: 'muzzlionaire' //TODO: Token passed in opts
+        }
+      };
+
+      _this.rpcManager.makeRequest(loginApp, function(err, muzzData){
+        //console.log(muzzData);
+        var createActivity = {
+          a: 'create'
+        };
+
+        _this.rpcManager.makeRequest(createActivity, function(err, muzzData){
+          if (err) {
+            if (err.d.connectTo){
+              //_this.endPoint = 'ws://' + err.d.connectTo + '/ws';
+              _this.endPoint = 'http://' + err.d.connectTo + '/web';
+              return _this.connectApp(opts, callback);
+            }else{
+              //return _this.handleError(err, callback);
+            }
+          }
+
+          //Create the activity object
+          var activity = {
+            activityId: muzzData.d.activityId,
+            qrCodeUrl: muzzData.d.qrCodeUrl
+          };
+
+          // Enable Events on activity
+          Eventify.enable(activity);
+
+          // Add the activity object to the current context _this
+          _this.activity = activity;
+
+          _this.trigger("connected", activity);
+          if (callback){
+            callback(null, activity);
+          }
+          else return ;
+
+        });
+
+      });
+
+    });
+
+  };
+
+
+  _this._socket.onmessage = function(message) {
+    _this.runMiddlewares(message, function (muzzData) {
+      console.log(muzzData);
+    });
+  };
+};
+
+module.exports = muzzMiddleware;
+},{"./utils/compose":2,"./middleware/heartBeat":3,"./middleware/rpcManager":4,"./middleware/playerJoin":11,"./middleware/playerAction":5,"./middleware/playerQuit":6,"./middleware/btnA":7,"./middleware/transformControl":8,"./remoteCalls/activity":9,"./remoteCalls/participant":10,"eventify":12}],13:[function(require,module,exports){var Eventify = require('eventify');
 var muzzleySDK = require('muzzley-sdk-js');
 
 var options = {
@@ -2629,7 +3117,7 @@ muzzley = (function(muzzleySDK, options){
 
   muzz.prototype.connectApp = function(opts, callback){
     var muzzleyConnection = new muzzleySDK(options);
-    muzzleyConnection.createActivity(opts, callback);
+    muzzleyConnection.connectApp(opts, callback);
 
     //Bubble error up
     muzzleyConnection.on('error', function(err){
@@ -2654,183 +3142,7 @@ muzzley = (function(muzzleySDK, options){
 
 
 
-},{"muzzley-sdk-js":"muzzley-sdk-js","eventify":5}],"muzzley-sdk-js":[function(require,module,exports){module.exports=require('hdMu9z');
-},{}],"hdMu9z":[function(require,module,exports){var rpcManager = require('./rpcManager.js');
-var remoteCalls = require('./remoteCalls.js');
-var messageHandler = require('./messageHandler.js');
-var Eventify = require('eventify');
-
-function Muzzley (options) {
-  var _this = this;
-  Eventify.enable(_this);
-
-  // TODO implement options if passed
-
-  _this.endPoint = options.endPoint;
-  _this.socket = options.socket;
-  _this.logMessages = options.logMessages || false;
-  _this.logSocketData = options.logSocketData || false;
-  _this.participants = {};
-  _this.activity = undefined;
-  _this.user = undefined;
-
-  //Error Function
-  _this.handleError = function(err, callback){
-    _this.trigger('error', err);
-    callback(err);
-  };
-
-  _this.log = function(msg){
-    if(_this.logMessages) console.log(msg);
-  };
-
-  return _this;
-
-}
-
-Muzzley.prototype.createActivity = function(opts, callback){
-  var _this = this;
-
-  //prepare "options" passed on arguments as "opts"
-  var options = {};
-  if (typeof opts === 'string'){
-    options.token = opts;
-  } else if (typeof opts === 'object') {
-    if (opts.token)  options.token = opts.token;
-    if (opts.activityId)  options.activityId = opts.activityId;
-  } else {
-    return handleError('Error: wrong parameters', callback);
-  }
-
-
-
-  //Create a new Socket
-  _this.socket = new _this.socket(_this.endPoint);
-
-  _this.socket.onopen = function()  {
-    _this.rpcManager = new rpcManager(_this.socket);
-    _this.remoteCalls = new remoteCalls(_this.socket, _this.rpcManager);
-
-    _this.log('##Activity: sending handShake');
-    _this.remoteCalls.handShake(function(err, response){
-      if (err) return _this.handleError(err, callback);
-      _this.log('##Activity: handshaked');
-
-      _this.log('##Activity: sending authApp');
-      _this.remoteCalls.authApp(options.token, function(err, response){
-        if (err) return _this.handleError(err, callback);
-        _this.log('##Activity: Authenticaded');
-
-        _this.log('##Activity: sending createActivity');
-        _this.remoteCalls.createActivity(options.activityId, function(err, response){
-          if (err) return _this.handleError(err, callback);
-          _this.log('##Activity: Activity Created');
-
-          //Create the activity object
-          var activity = {
-            activityId: response.d.activityId,
-            qrCodeUrl: response.d.qrCodeUrl
-          };
-
-          // Enable Events on activity
-          Eventify.enable(activity);
-
-          // Add the activity object to the current context _this
-          _this.activity = activity;
-
-          return callback(null, activity);
-        });
-      });
-    });
-  };
-
-  _this.socket.onmessage = function(message) {
-    if(_this.logSocketData) _this.log('##Activity MessageRecived:');
-    if(_this.logSocketData) _this.log(message);
-    messageHandler.apply(_this, [message]);
-  };
-
-  _this.socket.onclose = function()  {
-
-  };
-
-  _this.socket.onerror = function(err)  {
-    _this.trigger('error', err);
-  };
-
-  return;
-};
-
-
-Muzzley.prototype.joinActivity = function(userToken, activityId, callback){
-  var _this = this;
-
-  _this.socket = new _this.socket(_this.endPoint);
-
-  _this.socket.onopen = function()  {
-    _this.rpcManager = new rpcManager(_this.socket);
-    _this.remoteCalls = new remoteCalls(_this.socket, _this.rpcManager);
-
-    if(_this.logMessages) console.log('##User: sending handShake');
-
-    _this.remoteCalls.handShake(function(err, response){
-      if (err) return _this.handleError(err, callback);
-      _this.log('##User: handShaked');
-      _this.log('##User: sending authUser');
-
-      _this.remoteCalls.authUser(userToken, function(err, response){
-        if (err) return _this.handleError(err, callback);
-        _this.log('##User: user Authenticaded');
-        _this.log('##User: sending joinActivity');
-
-        _this.remoteCalls.joinActivity(activityId, function(err, response){
-          if (err) return _this.handleError(err, callback);
-          _this.log('##User: joined Activity');
-
-          //Create the participant object
-          var participant = {
-            id: response.participant.id,
-            name: response.participant.name,
-            photoUrl: response.participant.photoUrl
-          };
-
-          // Enable Events on activity
-          Eventify.enable(participant);
-
-          // Add the activity object to the current context _this
-          _this.user = participant;
-          _this.log('##User: sending Ready Notification');
-          return _this.remoteCalls.sendReady(function(){
-            _this.log('##User: Recived Ready Notification');
-            callback(null, _this.user);
-          });
-        });
-      });
-    });
-  };
-
-  _this.socket.onmessage = function(message) {
-    _this.log('##User MessageRecived:');
-    _this.log(message);
-    messageHandler.apply(_this, [message]);
-  };
-
-  _this.socket.onclose = function()  {
-    _this.trigger('error', 'Connection Lost');
-    _this.trigger('disconnect', 'Connection Lost');
-  };
-
-  _this.socket.onerror = function(err)  {
-    _this.trigger('error', err);
-  };
-
-
-
-};
-
-
-module.exports = Muzzley;
-},{"./rpcManager.js":2,"./remoteCalls.js":3,"./messageHandler.js":6,"eventify":5}],5:[function(require,module,exports){(function(){// Eventify
+},{"muzzley-sdk-js":"muzzley-sdk-js","eventify":12}],12:[function(require,module,exports){(function(){// Eventify
 // -----------------
 // Copyright(c) 2010-2012 Jeremy Ashkenas, DocumentCloud
 // Copyright(c) 2012 Bermi Ferrer <bermi@bermilabs.com>
@@ -3044,7 +3356,7 @@ module.exports = Muzzley;
 // Establish the root object, `window` in the browser, or `global` on the server.
 }(this));
 })()
-},{}],6:[function(require,module,exports){var Eventify = require('eventify');
+},{}],11:[function(require,module,exports){var Eventify = require('eventify');
 
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
@@ -3054,124 +3366,57 @@ var MESSAGE_TYPE_RESPONSE_CORE = 4;
 var MESSAGE_TYPE_SIGNAL = 5;
 
 
-module.exports = function (message) {
+var notReadyParticipants = {};
+//
+// PlayerJoin middleware
+//
+function playerJoin(muzzData, next){
   var _this = this;
+  // if is a ready signal of the 'participantJoin'
+  if (muzzData.h.t  === MESSAGE_TYPE_REQUEST && muzzData.a ==='signal' && muzzData.d.a === 'ready'){
+    // Find the participant object to trigger the event of 'participantJoin'
+    // check the pid with our participant
+    if (notReadyParticipants[muzzData.h.pid]){
+      _this.remoteCalls.successResponse(muzzData.h);
+      _this.participants[muzzData.h.pid] = notReadyParticipants[muzzData.h.pid];
+      delete notReadyParticipants[muzzData.h.pid];
 
-  // Just test if the message is well parsed or parsable
-  if (typeof message.data !== 'object') {
-    try {
-      message = JSON.parse(message.data);
-    } catch (e) {
-      console.log('Received an invalid non-JSON message. Ignoring.');
+      _this.trigger("participantJoin", _this.participants[muzzData.h.pid]);
+      _this.activity.trigger("participantJoin", _this.participants[muzzData.h.pid]);
       return;
+
     }
-  }
 
-  // If the message is a Response it need to be handled by the rpcManager
-  if (message.h.t  === MESSAGE_TYPE_RESPONSE){
-    return _this.rpcManager.handleResponse(message);
-  }
-
-  // If the message is a signal
-  if (message.h.t  === MESSAGE_TYPE_SIGNAL){
-
-    if (message.d.w === 'hb') {
-      //{"h":{"t":5},"a":"signal","d":{"w":"hb","c":"hb","v":"hb","e":"hb"}}
-      _this.log('##Activity heartBeat');
-      return;
-    }
-    //Find the participant who sent the signal
-    if (_this.participants[message.h.pid]){
-
-      //Emit the action of the participant
-      _this.participants[message.h.pid].trigger('action', message.d);
-    }
-  }
-
-
-  // If the message is a core Request
-  if (message.h.t  === MESSAGE_TYPE_REQUEST_CORE){
-    // if is a participant join 
-    if (message.a ==='participantJoined'){
-      _this.log('##Activity: Recived ParticipantJoined');
-      //Create a new partcipant object
-      var participant  = (function (_this) {
-        return {
-          id: message.d.participant.id,
-          name: message.d.participant.name,
-          photoUrl: message.d.participant.photoUrl,
-          changeWidget:function(widget, callback) {
-            _this.log('##Activity request to changeWidget');
+  // else if is a participant join 
+  }else if (muzzData.h.t  === MESSAGE_TYPE_REQUEST_CORE && muzzData.a ==='participantJoined'){
+    //Create a new partcipant object
+      var participant  = {
+        id: muzzData.d.participant.id,
+        name: muzzData.d.participant.name,
+        photoUrl: muzzData.d.participant.photoUrl,
+        changeWidget:function(widget, params, callback) {
+          if (typeof params === 'function') {
+            callback = params;
             _this.remoteCalls.changeWidget(widget, this.id, callback);
+          } else {
+            _this.remoteCalls.changeWidget(widget, params, this.id, callback);
           }
-        };
-      }(_this));
+        },
+        setupComponent:function(component, callback) {
+          _this.remoteCalls.setupComponent(component, this.id, callback);
+        }
+      };
 
-      // Enable Events on activity
+      //Enable events
       Eventify.enable(participant);
 
-      //Save the participant to participants
-      _this.participants[participant.id] = participant;
-
-      // Reply to the server with a success Response
-      //
-      // ATTENTION:doesnt emit the 'participantJoin' event 
-      // it will be triggered down on a MESSAGE_TYPE_REQUEST event from the server
-      _this.log('##Activity: Sending joined Notification');
-      return _this.remoteCalls.successResponse(message.h);
-    }
-
-    // If is a participant quit
-    if (message.a ==='participantQuit'){
-
-      // Find the participant who quited the activity
-      if (_this.participants[message.d.participantId]){
-
-        // override changeWidget method
-        _this.participants[message.d.participantId].changeWidget = function(){
-          return "participant allready quited activity";
-        };
-
-        // Emit the quit event
-        _this.participants[message.d.participantId].trigger('quit', message.a);
-        return _this.activity.trigger('participantQuit', _this.participants[message.d.participantId]);
-      }
-
-    }
+      notReadyParticipants[participant.id] = participant;
+      _this.remoteCalls.successResponse(muzzData.h);
+      return;
+  }else{
+    next(muzzData);
   }
+}
 
-  // Check if the message is a request
-  if (message.h.t  === MESSAGE_TYPE_REQUEST){
-    // if the request is a signal
-    if (message.a ==='signal'){
-
-      // if is a ready signal of the 'participantJoin'
-      if (message.d.a === 'ready'){
-        _this.log('##Activity: Participant Ready Notification Received');
-
-        //Find the participant object to trigger the event of 'participantJoin'
-        // check the pid with our participant
-        if (_this.participants[message.h.pid]){
-          // Send a success response back
-          _this.log('##Activity: Sending Ready Notification Response');
-          _this.remoteCalls.successResponse(message.h);
-          // Emit the 'participantJoin' event
-          _this.log('##Activity: trigger "participantJoin" event');
-          return _this.activity.trigger('participantJoin', _this.participants[message.h.pid]);
-        }
-
-      }
-
-      if (message.d.a === 'changeWidget') {
-        _this.log('##User: Recived changeWidget request');
-        _this.log('##User: Sending changeWidget success Response');
-        _this.remoteCalls.successResponse(message.h);
-
-        _this.log('##User: trigger "changeWidget" event');
-        return _this.user.trigger('changeWidget', message.d.d);
-      }
-
-    }
-  }
-};
-},{"eventify":5}]},{},[1,4]);
+module.exports = playerJoin;
+},{"eventify":12}]},{},[1,13]);

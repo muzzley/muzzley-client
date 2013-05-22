@@ -1,6 +1,6 @@
 {
   "name": "muzzley-client",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "main": "lib/node-dist.js",
   "browser": "lib/browserify-dist.js",

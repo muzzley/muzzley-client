@@ -1,7 +1,6 @@
-var muzzley = require('../lib/muzzMiddleware');
+var muzzley = require('../lib/index');
 
 var sockJs = require('sockjs-client');
-var utils = require('../utils');
 
 var options = {
   socket: sockJs,
