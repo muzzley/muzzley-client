@@ -2,8 +2,8 @@
   "name": "muzzley-client",
   "version": "0.3.0",
   "private": true,
-  "main": "lib/node-dist.js",
-  "browser": "lib/browserify-dist.js",
+  "main": "lib/dist-node.js",
+  "browser": "lib/dist-browserify.js",
   "dependencies": {
     "browserify": "*",
     "eventify": "*",
