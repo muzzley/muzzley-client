@@ -1,5 +1,5 @@
 var argv = require('optimist').argv;
-var muzzley = require('../lib/node-dist.js');
+var muzzley = require('../lib/dist-node.js');
 
 //Catch the app token passed 
 var appToken = argv.t ? argv.t : 'muzzlionaire';
@@ -19,7 +19,7 @@ muzzley.connectApp(appToken, function(err, activity){
   console.log('##Activity: activityCreated');
   console.log('##Activity Settings:');
   console.log(activity);
- 
+
   activity.on('participantQuit', function(participant){
     console.log('##Activity: "EVENT" participantQuit');
   });

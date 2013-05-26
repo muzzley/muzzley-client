@@ -1,6 +1,6 @@
 # Muzzley JavaScript Library
 
-**Version: 0.2.0 Draft**
+**Version: 0.3.0 Draft**
 
 This document describes how to use the muzzley JavaScript library.
 
@@ -26,16 +26,16 @@ To use the library with Node.js first you need to add the `npm` manifest to your
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "muzzley-sdk-js":"git+ssh://git@bitbucket.org:muzzley/muzzley-sdk-js.git#v0.1.0"
+    "muzzley-client":"*"
   }
 }
 ```
 
-You need to add a dependecy called `muzzley-sdk-js` that points to our private repository of the library. Then you're ready to `require` it in your application as the following example shows:
+Run `npm install`. Then you're ready to `require` it in your application as the following example shows:
 
 
 ```
-var muzzley = require('muzzley-sdk-js');
+var muzzley = require('muzzley-client');
 
 var myAppToken = 'your app token here';
 
@@ -66,14 +66,6 @@ muzzley.connectApp(myAppToken, function (err, activity) {
   });
 });
 ```
-
-### Ender support
-
-Soon.
-
-### Bower support
-
-Soon.
 
 ## API Documentation
 
@@ -232,13 +224,54 @@ participant.on('quit', function () {
 
 ### muzz.connectUser
 
-This method connects a user with the muzzley platform and creates a participant
+This method allows you to connect to a muzzley activity as a participant.
 
 ```
-var userToken = 'guest';
+var userToken = 'guest'; 
 var activityId = '14e0f3';
 muzz.connectUser(userToken, activityId, callback);
 ```
+The `callback` function will recive an `err` and a `user` object;
+
+```
+function callback(err, user) {
+  
+}
+```
+
+##### user
+
+The `user` object will have the participant's properties:
+
+```
+{ 
+  id: 1,
+  name: 'muzzley dev',
+  photoUrl: 'http://graph.facebook.com/123/picture?type=large'
+}
+```
+The `user` is also an event-emitter, and you can listen for `changeWidget` events:
+
+```
+user('changeWidget', function (widget) {
+  
+});
+```
+
+the `changeWidget` event recives a `widget` string with the name of the widget wich this participant should transform
+
+After you recive this event you can start sending widget data for that you call `user.sendWidgetData`
+
+```
+user.sendWidgetData({
+	"w": "gamepad",
+	"c": "b",
+	"v": 1,
+	"e": 2
+});
+```
+
+
 
 ## Modify and test
 

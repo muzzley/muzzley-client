@@ -2,13 +2,22 @@ var muzzley = require('../lib/index');
 
 var sockJs = require('sockjs-client');
 
-var options = {
+var optionsActivity = {
   socket: sockJs,
-  endPoint:'http://platform.geo.muzzley.com/web'
+  //endPoint:'http://platform.geo.muzzley.com/web'
+  endPoint:'http://localhost:8082/web'
+
+};
+
+var optionsParticipant = {
+  socket: sockJs,
+  //endPoint:'http://platform.geo.muzzley.com/web'
+  endPoint:'http://localhost:8082/web'
+
 };
 
 
-var muzzleyApp = new muzzley(options);
+var muzzleyApp = new muzzley(optionsActivity);
 
 
 muzzleyApp.connectApp('muzzlionaire');
@@ -24,33 +33,34 @@ muzzleyApp.on('connected', function(activity){
   var qrCodeImg = document.getElementById('qrCodeImg');
   qrCodeImg.src = activity.qrCodeUrl;
 
-  var muzzleyParticipant = new muzzley(options);
-  muzzleyParticipant.joinActivity('muzdev', activity.activityId);
+  var muzzleyParticipant = new muzzley(optionsParticipant);
 
-  muzzleyParticipant.on('joined', function(err, participant){
+  muzzleyParticipant.joinActivity('muzdev', activity.activityId, function(err, user){
     console.log('event');
-    console.log(participant);
-  });
-  muzzleyParticipant.on('changeWidget', function(widget){
-    console.log('widget');
-    console.log(widget);
-    var _this = this;
+    console.log(user);
+    user.on('changeWidget', function(widget){
+      console.log('widget');
+      console.log(widget);
+      var _this = this;
 
-    setInterval(function(){
-      _this.remoteCalls.sendWidgetData({
-        "w": "gamepad",
-        "c": "b",
-        "v": 1,
-        "e": 2
-      });
-    }, 200);
+      setInterval(function(){
+        user.sendWidgetData({
+          "w": "gamepad",
+          "c": "b",
+          "v": 1,
+          "e": 2
+        });
+      }, 200);
 
-    setTimeout(function(){
-      _this.remoteCalls.quit();
-    }, 5000);
+      setTimeout(function(){
+        //_this.remoteCalls.quit();
+      }, 5000);
 
+    });
   });
 });
+
+ // muzzleyParticipant.on('joined', 
 
 muzzleyApp.on('participantJoin', function(participant){
   console.log('participantJoin');
