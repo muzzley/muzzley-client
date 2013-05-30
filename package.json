@@ -13,6 +13,8 @@
     "event-stream":"*",
     "sockjs-client" : "git://github.com/substack/sockjs-client.git#browserify-npm",
     "shoe":"*",
-    "JSONStream":"*"
+    "JSONStream":"*",
+    "request":"*",
+    "browser-request":"*"
   }
 }

@@ -1,5 +1,5 @@
 var muzzley = require('../lib/index');
-
+var errors = require('../lib/utils/error-browser.js');
 var sockJs = require('sockjs-client');
 
 var optionsActivity = {
@@ -19,6 +19,10 @@ var optionsParticipant = {
 
 var muzzleyApp = new muzzley(optionsActivity);
 
+muzzleyApp.on('error', function(err){
+  errors.sendError(err);
+  console.log(err);
+});
 
 muzzleyApp.connectApp('muzzlionaire');
 muzzleyApp.on('buttonA', function(player){
