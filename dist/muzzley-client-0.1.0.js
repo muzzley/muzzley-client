@@ -2379,29 +2379,6 @@ if (typeof define === 'function' && define.amd) {
 // [*] End of lib/all.js
 })()
 },{}],2:[function(require,module,exports){
-function compose () {
-  var funx = [].slice.call(arguments)
-  if(funx.length <= 1)
-    return funx[0]
-  var f1 = funx.shift()
-  var f2 = funx.shift()
-  
-  funx.unshift(function () {
-    var args = [].slice.call(arguments)
-    var callback = args.pop()
-    args.push(function () {
-      var args = [].slice.call(arguments)
-      args.push(callback)    
-      f2.apply(_this, args)   
-    })
-    var _this = this;
-    f1.apply(_this, args)   
-  })
-  return compose.apply(null, funx)
-}
-
-module.exports = compose;
-},{}],3:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2492,7 +2469,7 @@ rpcManager.prototype.makeRequest = function (message, responseCallback){
 
 
 module.exports = rpcManager;
-},{}],4:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 
 //
 // heartBeat middleware
@@ -2518,67 +2495,7 @@ function hb(muzzData, next){
 }
 
 module.exports = hb;
-},{}],5:[function(require,module,exports){
-//Protocol message codes
-var MESSAGE_TYPE_REQUEST = 1;
-var MESSAGE_TYPE_RESPONSE = 2;
-var MESSAGE_TYPE_REQUEST_CORE = 3;
-var MESSAGE_TYPE_RESPONSE_CORE = 4;
-var MESSAGE_TYPE_SIGNAL = 5;
-
-//
-// PlayerJoin middleware
-//
-function playerAction(muzzData, next){
-  var _this = this;
-  // if is a ready signal of the 'participantJoin'
-  if (muzzData.h.t  === MESSAGE_TYPE_SIGNAL && muzzData.h.pid){
-    //Check if the player exists
-    if(_this.participants[muzzData.h.pid]){
-      _this.participants[muzzData.h.pid].trigger('action', muzzData.d);
-      next(muzzData);
-    }
-
-  }else{
-    next(muzzData);
-  }
-
-}
-
-module.exports = playerAction;
-},{}],6:[function(require,module,exports){
-//Protocol message codes
-var MESSAGE_TYPE_REQUEST = 1;
-var MESSAGE_TYPE_RESPONSE = 2;
-var MESSAGE_TYPE_REQUEST_CORE = 3;
-var MESSAGE_TYPE_RESPONSE_CORE = 4;
-var MESSAGE_TYPE_SIGNAL = 5;
-
-//
-// PlayerQuit middleware
-//
-function playerQuit(muzzData, next){
-
-  var _this = this;
-  // if is a ready signal of the 'participantQuit'
-  if (muzzData.a ==='participantQuit'){
-    //Check if the player exists
-    if(_this.participants[muzzData.d.participantId]){
-
-      _this.participants[muzzData.d.participantId].trigger('quit', null);
-      _this.activity.trigger('participantQuit', _this.participants[muzzData.d.participantId]);
-
-      return;
-    }
-
-  }else{
-    next(muzzData);
-  }
-
-}
-
-module.exports = playerQuit;
-},{}],7:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_SIGNAL = 5;
 
@@ -2604,33 +2521,7 @@ function btnA(muzzData, next){
 }
 
 module.exports = btnA;
-},{}],8:[function(require,module,exports){
-//Protocol message codes
-var MESSAGE_TYPE_REQUEST = 1;
-var MESSAGE_TYPE_RESPONSE = 2;
-var MESSAGE_TYPE_REQUEST_CORE = 3;
-var MESSAGE_TYPE_RESPONSE_CORE = 4;
-var MESSAGE_TYPE_SIGNAL = 5;
-
-//
-// PlayerJoin middleware
-//
-function transformControl(muzzData, next){
-  var _this = this;
-  // if is a transform control unit request
-  if (muzzData.h.t  === MESSAGE_TYPE_REQUEST && muzzData.a === 'signal' && muzzData.d.a ==='changeWidget'){
-    //Check if the player exists
-    _this.remoteCalls.successResponse(muzzData.h);
-    _this.trigger('changeWidget', muzzData.d);
-    _this.participant.trigger('changeWidget', muzzData.d);
-  }else{
-    next(muzzData);
-  }
-
-}
-
-module.exports = transformControl;
-},{}],9:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2865,6 +2756,115 @@ remoteCalls.prototype.sendSignal = function (data, pid, callback){
 };
 
 module.exports = remoteCalls;
+},{}],6:[function(require,module,exports){
+function compose () {
+  var funx = [].slice.call(arguments)
+  if(funx.length <= 1)
+    return funx[0]
+  var f1 = funx.shift()
+  var f2 = funx.shift()
+  
+  funx.unshift(function () {
+    var args = [].slice.call(arguments)
+    var callback = args.pop()
+    args.push(function () {
+      var args = [].slice.call(arguments)
+      args.push(callback)    
+      f2.apply(_this, args)   
+    })
+    var _this = this;
+    f1.apply(_this, args)   
+  })
+  return compose.apply(null, funx)
+}
+
+module.exports = compose;
+},{}],7:[function(require,module,exports){
+//Protocol message codes
+var MESSAGE_TYPE_REQUEST = 1;
+var MESSAGE_TYPE_RESPONSE = 2;
+var MESSAGE_TYPE_REQUEST_CORE = 3;
+var MESSAGE_TYPE_RESPONSE_CORE = 4;
+var MESSAGE_TYPE_SIGNAL = 5;
+
+//
+// PlayerQuit middleware
+//
+function playerQuit(muzzData, next){
+
+  var _this = this;
+  // if is a ready signal of the 'participantQuit'
+  if (muzzData.a ==='participantQuit'){
+    //Check if the player exists
+    if(_this.participants[muzzData.d.participantId]){
+
+      _this.participants[muzzData.d.participantId].trigger('quit', null);
+      _this.activity.trigger('participantQuit', _this.participants[muzzData.d.participantId]);
+
+      return;
+    }
+
+  }else{
+    next(muzzData);
+  }
+
+}
+
+module.exports = playerQuit;
+},{}],8:[function(require,module,exports){
+//Protocol message codes
+var MESSAGE_TYPE_REQUEST = 1;
+var MESSAGE_TYPE_RESPONSE = 2;
+var MESSAGE_TYPE_REQUEST_CORE = 3;
+var MESSAGE_TYPE_RESPONSE_CORE = 4;
+var MESSAGE_TYPE_SIGNAL = 5;
+
+//
+// PlayerJoin middleware
+//
+function playerAction(muzzData, next){
+  var _this = this;
+  // if is a ready signal of the 'participantJoin'
+  if (muzzData.h.t  === MESSAGE_TYPE_SIGNAL && muzzData.h.pid){
+    //Check if the player exists
+    if(_this.participants[muzzData.h.pid]){
+      _this.participants[muzzData.h.pid].trigger('action', muzzData.d);
+      next(muzzData);
+    }
+
+  }else{
+    next(muzzData);
+  }
+
+}
+
+module.exports = playerAction;
+},{}],9:[function(require,module,exports){
+//Protocol message codes
+var MESSAGE_TYPE_REQUEST = 1;
+var MESSAGE_TYPE_RESPONSE = 2;
+var MESSAGE_TYPE_REQUEST_CORE = 3;
+var MESSAGE_TYPE_RESPONSE_CORE = 4;
+var MESSAGE_TYPE_SIGNAL = 5;
+
+//
+// PlayerJoin middleware
+//
+function transformControl(muzzData, next){
+  var _this = this;
+  // if is a transform control unit request
+  if (muzzData.h.t  === MESSAGE_TYPE_REQUEST && muzzData.a === 'signal' && muzzData.d.a ==='changeWidget'){
+    //Check if the player exists
+    _this.remoteCalls.successResponse(muzzData.h);
+    _this.trigger('changeWidget', muzzData.d);
+    _this.participant.trigger('changeWidget', muzzData.d);
+  }else{
+    next(muzzData);
+  }
+
+}
+
+module.exports = transformControl;
 },{}],10:[function(require,module,exports){
 //
 // Remotes calls
@@ -3302,9 +3302,73 @@ muzzMiddleware.prototype.connectApp = function(opts, callback){
 
 module.exports = muzzMiddleware;
 })(require("__browserify_process"))
-},{"./utils/compose":2,"./rpcManager/rpcManager":3,"./middleware/heartBeat":4,"./middleware/activity/playerJoin":14,"./middleware/activity/playerAction":5,"./middleware/activity/playerQuit":6,"./middleware/activity/btnA":7,"./middleware/participant/transformControl":8,"./remoteCalls/activity":9,"./remoteCalls/participant":10,"eventify":12,"__browserify_process":13}],12:[function(require,module,exports){
+},{"./rpcManager/rpcManager":2,"./middleware/heartBeat":3,"./middleware/activity/btnA":4,"./middleware/participant/transformControl":9,"./middleware/activity/playerJoin":14,"./remoteCalls/activity":5,"./remoteCalls/participant":10,"./utils/compose":6,"./middleware/activity/playerAction":8,"./middleware/activity/playerQuit":7,"eventify":12,"__browserify_process":13}],12:[function(require,module,exports){
 module.exports = require('./lib/eventify.js');
-},{"./lib/eventify.js":15}],15:[function(require,module,exports){
+},{"./lib/eventify.js":15}],14:[function(require,module,exports){
+var Eventify = require('eventify');
+
+//Protocol message codes
+var MESSAGE_TYPE_REQUEST = 1;
+var MESSAGE_TYPE_RESPONSE = 2;
+var MESSAGE_TYPE_REQUEST_CORE = 3;
+var MESSAGE_TYPE_RESPONSE_CORE = 4;
+var MESSAGE_TYPE_SIGNAL = 5;
+
+
+var notReadyParticipants = {};
+//
+// PlayerJoin middleware
+//
+function playerJoin(muzzData, next){
+  var _this = this;
+  // if is a ready signal of the 'participantJoin'
+  if (muzzData.h.t  === MESSAGE_TYPE_REQUEST && muzzData.a ==='signal' && muzzData.d.a === 'ready'){
+    // Find the participant object to trigger the event of 'participantJoin'
+    // check the pid with our participant
+    if (notReadyParticipants[muzzData.h.pid]){
+      _this.remoteCalls.successResponse(muzzData.h);
+      _this.participants[muzzData.h.pid] = notReadyParticipants[muzzData.h.pid];
+      delete notReadyParticipants[muzzData.h.pid];
+
+      _this.trigger("participantJoin", _this.participants[muzzData.h.pid]);
+      _this.activity.trigger("participantJoin", _this.participants[muzzData.h.pid]);
+      return;
+
+    }
+
+  // else if is a participant join 
+  }else if (muzzData.h.t  === MESSAGE_TYPE_REQUEST_CORE && muzzData.a ==='participantJoined'){
+    //Create a new partcipant object
+    var participant  = {
+      id: muzzData.d.participant.id,
+      name: muzzData.d.participant.name,
+      photoUrl: muzzData.d.participant.photoUrl,
+      changeWidget:function(widget, params, callback) {
+        if (typeof params === 'function') {
+          callback = params;
+          _this.remoteCalls.changeWidget(widget, this.id, callback);
+        } else {
+          _this.remoteCalls.changeWidget(widget, params, this.id, callback);
+        }
+      },
+      setupComponent:function(component, callback) {
+        _this.remoteCalls.setupComponent(component, this.id, callback);
+      }
+    };
+
+    //Enable events
+    Eventify.enable(participant);
+
+    notReadyParticipants[participant.id] = participant;
+    _this.remoteCalls.successResponse(muzzData.h);
+    return;
+  }else{
+    next(muzzData);
+  }
+}
+
+module.exports = playerJoin;
+},{"eventify":12}],15:[function(require,module,exports){
 (function(){// Eventify
 // -----------------
 // Copyright(c) 2010-2012 Jeremy Ashkenas, DocumentCloud
@@ -3519,69 +3583,5 @@ module.exports = require('./lib/eventify.js');
 // Establish the root object, `window` in the browser, or `global` on the server.
 }(this));
 })()
-},{}],14:[function(require,module,exports){
-var Eventify = require('eventify');
-
-//Protocol message codes
-var MESSAGE_TYPE_REQUEST = 1;
-var MESSAGE_TYPE_RESPONSE = 2;
-var MESSAGE_TYPE_REQUEST_CORE = 3;
-var MESSAGE_TYPE_RESPONSE_CORE = 4;
-var MESSAGE_TYPE_SIGNAL = 5;
-
-
-var notReadyParticipants = {};
-//
-// PlayerJoin middleware
-//
-function playerJoin(muzzData, next){
-  var _this = this;
-  // if is a ready signal of the 'participantJoin'
-  if (muzzData.h.t  === MESSAGE_TYPE_REQUEST && muzzData.a ==='signal' && muzzData.d.a === 'ready'){
-    // Find the participant object to trigger the event of 'participantJoin'
-    // check the pid with our participant
-    if (notReadyParticipants[muzzData.h.pid]){
-      _this.remoteCalls.successResponse(muzzData.h);
-      _this.participants[muzzData.h.pid] = notReadyParticipants[muzzData.h.pid];
-      delete notReadyParticipants[muzzData.h.pid];
-
-      _this.trigger("participantJoin", _this.participants[muzzData.h.pid]);
-      _this.activity.trigger("participantJoin", _this.participants[muzzData.h.pid]);
-      return;
-
-    }
-
-  // else if is a participant join 
-  }else if (muzzData.h.t  === MESSAGE_TYPE_REQUEST_CORE && muzzData.a ==='participantJoined'){
-    //Create a new partcipant object
-    var participant  = {
-      id: muzzData.d.participant.id,
-      name: muzzData.d.participant.name,
-      photoUrl: muzzData.d.participant.photoUrl,
-      changeWidget:function(widget, params, callback) {
-        if (typeof params === 'function') {
-          callback = params;
-          _this.remoteCalls.changeWidget(widget, this.id, callback);
-        } else {
-          _this.remoteCalls.changeWidget(widget, params, this.id, callback);
-        }
-      },
-      setupComponent:function(component, callback) {
-        _this.remoteCalls.setupComponent(component, this.id, callback);
-      }
-    };
-
-    //Enable events
-    Eventify.enable(participant);
-
-    notReadyParticipants[participant.id] = participant;
-    _this.remoteCalls.successResponse(muzzData.h);
-    return;
-  }else{
-    next(muzzData);
-  }
-}
-
-module.exports = playerJoin;
-},{"eventify":12}]},{},[1,11])
+},{}]},{},[11,1])
 ;
