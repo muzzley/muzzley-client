@@ -231,7 +231,6 @@ user.sendWidgetData({
 });
 ```
 
-
 ## Tests
 
 Coming soon.
