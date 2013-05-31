@@ -64,6 +64,12 @@ muzzley.on('error', function(err) {
 });
 ```
 
+Some `error` messages are also sent via xhr to our servers, if you don't want this behavior you can simple turn it off
+
+```
+muzzley.sendErrors = false;
+```
+
 ## Methods
 
 ### muzzley.connectApp()
@@ -173,6 +179,8 @@ participant.changeWidget('widget identifier', callback);
 
 The possible widgets are referenced in the muzzley documentation at http://www.muzzley.com/documentation
 
+
+-----------
 
 ### muzz.connectUser()
 
