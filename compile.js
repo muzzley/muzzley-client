@@ -5,7 +5,7 @@ var version = require('./package.json');
 
 
 var js = browserify(['./vendor/sockjs.js']);
-js.require('./lib/', {expose:'muzzley-sdk-js'});
+js.require('./lib/', {expose:'muzzley-client'});
 
 js.add('./lib/dist-browser.js');
 
@@ -22,15 +22,7 @@ js.bundle(function(err, file){
   fs.writeFileSync(fileName, minified);
   console.log('It\'s saved and ready to use at ' + fileName);
 
-  /*
-  * Removed for now while i refactor the examples
-  *
-  fileName = __dirname + '/tests/public/muzzley-client-' + version.version + '.min.js';
-  fs.writeFileSync(fileName, minified);
-  console.log('\nTo test it, just run the command:');
-  console.log('1. Run "npm install" in the "tests/" folder');
-  console.log('2. Run "node testDist.js" in the "tests/" folder');
-  console.log('3. Open the link: http://localhost:8080/min.html (and check the console)');
-  */
+  console.log("");
+  console.log("Check examples folder to find more about how to use the lib");
 
 });

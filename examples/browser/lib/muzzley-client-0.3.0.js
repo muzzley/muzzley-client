@@ -2379,29 +2379,6 @@ if (typeof define === 'function' && define.amd) {
 // [*] End of lib/all.js
 })()
 },{}],2:[function(require,module,exports){
-function compose () {
-  var funx = [].slice.call(arguments)
-  if(funx.length <= 1)
-    return funx[0]
-  var f1 = funx.shift()
-  var f2 = funx.shift()
-  
-  funx.unshift(function () {
-    var args = [].slice.call(arguments)
-    var callback = args.pop()
-    args.push(function () {
-      var args = [].slice.call(arguments)
-      args.push(callback)    
-      f2.apply(_this, args)   
-    })
-    var _this = this;
-    f1.apply(_this, args)   
-  })
-  return compose.apply(null, funx)
-}
-
-module.exports = compose;
-},{}],3:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2492,7 +2469,7 @@ rpcManager.prototype.makeRequest = function (message, responseCallback){
 
 
 module.exports = rpcManager;
-},{}],4:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 
 //
 // heartBeat middleware
@@ -2518,7 +2495,7 @@ function hb(muzzData, next){
 }
 
 module.exports = hb;
-},{}],5:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2546,7 +2523,7 @@ function playerAction(muzzData, next){
 }
 
 module.exports = playerAction;
-},{}],6:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2578,7 +2555,7 @@ function playerQuit(muzzData, next){
 }
 
 module.exports = playerQuit;
-},{}],7:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_SIGNAL = 5;
 
@@ -2604,7 +2581,7 @@ function btnA(muzzData, next){
 }
 
 module.exports = btnA;
-},{}],8:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2630,7 +2607,7 @@ function transformControl(muzzData, next){
 }
 
 module.exports = transformControl;
-},{}],9:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2865,7 +2842,7 @@ remoteCalls.prototype.sendSignal = function (data, pid, callback){
 };
 
 module.exports = remoteCalls;
-},{}],10:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 //
 // Remotes calls
 function remoteCalls(socket, rpcManager){
@@ -2963,6 +2940,29 @@ remoteCalls.prototype.quit = function (data, callback){
 };
 
 module.exports = remoteCalls;
+},{}],10:[function(require,module,exports){
+function compose () {
+  var funx = [].slice.call(arguments)
+  if(funx.length <= 1)
+    return funx[0]
+  var f1 = funx.shift()
+  var f2 = funx.shift()
+  
+  funx.unshift(function () {
+    var args = [].slice.call(arguments)
+    var callback = args.pop()
+    args.push(function () {
+      var args = [].slice.call(arguments)
+      args.push(callback)    
+      f2.apply(_this, args)   
+    })
+    var _this = this;
+    f1.apply(_this, args)   
+  })
+  return compose.apply(null, funx)
+}
+
+module.exports = compose;
 },{}],11:[function(require,module,exports){
 var Eventify = require('eventify');
 var muzzleySDK = require('muzzley-client');
@@ -2970,7 +2970,7 @@ var errors = require('./utils/error-browser.js');
 
 var options = {
   socket: SockJS,
-  endPoint:'http://asd'
+  endPoint:'http://localhost:8082/web'
   //endPoint:'http://platform.geo.muzzley.com/web'
 };
 
@@ -2992,6 +2992,8 @@ muzzley = (function(muzzleySDK, options){
     //Bubble error up
     muzzleyConnection.on('error', function(error){
       if (error.error === 'Timeout'){
+        errors.sendError(error);
+      }else if (error.d && error.d.connectTo){
         errors.sendError(error);
       }
       _this.trigger('error', error);
@@ -3320,7 +3322,7 @@ muzzMiddleware.prototype.connectApp = function(opts, callback){
 
 module.exports = muzzMiddleware;
 })(require("__browserify_process"))
-},{"./utils/compose":2,"./rpcManager/rpcManager":3,"./middleware/heartBeat":4,"./middleware/activity/playerJoin":15,"./middleware/activity/playerAction":5,"./middleware/activity/playerQuit":6,"./middleware/activity/btnA":7,"./middleware/participant/transformControl":8,"./remoteCalls/activity":9,"./remoteCalls/participant":10,"eventify":13,"__browserify_process":14}],13:[function(require,module,exports){
+},{"./utils/compose":10,"./rpcManager/rpcManager":2,"./middleware/heartBeat":3,"./middleware/activity/playerJoin":15,"./middleware/activity/playerAction":4,"./middleware/activity/playerQuit":5,"./middleware/activity/btnA":6,"./middleware/participant/transformControl":7,"./remoteCalls/activity":8,"./remoteCalls/participant":9,"eventify":13,"__browserify_process":14}],13:[function(require,module,exports){
 module.exports = require('./lib/eventify.js');
 },{"./lib/eventify.js":16}],16:[function(require,module,exports){
 (function(){// Eventify
