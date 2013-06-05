@@ -2379,6 +2379,155 @@ if (typeof define === 'function' && define.amd) {
 // [*] End of lib/all.js
 })()
 },{}],2:[function(require,module,exports){
+
+/**
+ * Expose `debug()` as the module.
+ */
+
+module.exports = debug;
+
+/**
+ * Create a debugger with the given `name`.
+ *
+ * @param {String} name
+ * @return {Type}
+ * @api public
+ */
+
+function debug(name) {
+  if (!debug.enabled(name)) return function(){};
+
+  return function(fmt){
+    var curr = new Date;
+    var ms = curr - (debug[name] || curr);
+    debug[name] = curr;
+
+    fmt = name
+      + ' '
+      + fmt
+      + ' +' + debug.humanize(ms);
+
+    // This hackery is required for IE8
+    // where `console.log` doesn't have 'apply'
+    window.console
+      && console.log
+      && Function.prototype.apply.call(console.log, console, arguments);
+  }
+}
+
+/**
+ * The currently active debug mode names.
+ */
+
+debug.names = [];
+debug.skips = [];
+
+/**
+ * Enables a debug mode by name. This can include modes
+ * separated by a colon and wildcards.
+ *
+ * @param {String} name
+ * @api public
+ */
+
+debug.enable = function(name) {
+  try {
+    localStorage.debug = name;
+  } catch(e){}
+
+  var split = (name || '').split(/[\s,]+/)
+    , len = split.length;
+
+  for (var i = 0; i < len; i++) {
+    name = split[i].replace('*', '.*?');
+    if (name[0] === '-') {
+      debug.skips.push(new RegExp('^' + name.substr(1) + '$'));
+    }
+    else {
+      debug.names.push(new RegExp('^' + name + '$'));
+    }
+  }
+};
+
+/**
+ * Disable debug output.
+ *
+ * @api public
+ */
+
+debug.disable = function(){
+  debug.enable('');
+};
+
+/**
+ * Humanize the given `ms`.
+ *
+ * @param {Number} m
+ * @return {String}
+ * @api private
+ */
+
+debug.humanize = function(ms) {
+  var sec = 1000
+    , min = 60 * 1000
+    , hour = 60 * min;
+
+  if (ms >= hour) return (ms / hour).toFixed(1) + 'h';
+  if (ms >= min) return (ms / min).toFixed(1) + 'm';
+  if (ms >= sec) return (ms / sec | 0) + 's';
+  return ms + 'ms';
+};
+
+/**
+ * Returns true if the given mode name is enabled, false otherwise.
+ *
+ * @param {String} name
+ * @return {Boolean}
+ * @api public
+ */
+
+debug.enabled = function(name) {
+  for (var i = 0, len = debug.skips.length; i < len; i++) {
+    if (debug.skips[i].test(name)) {
+      return false;
+    }
+  }
+  for (var i = 0, len = debug.names.length; i < len; i++) {
+    if (debug.names[i].test(name)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+// persist
+
+if (window.localStorage) debug.enable(localStorage.debug);
+
+},{}],3:[function(require,module,exports){
+function compose () {
+  var funx = [].slice.call(arguments)
+  if(funx.length <= 1)
+    return funx[0]
+  var f1 = funx.shift()
+  var f2 = funx.shift()
+  
+  funx.unshift(function () {
+    var args = [].slice.call(arguments)
+    var callback = args.pop()
+    args.push(function () {
+      var args = [].slice.call(arguments)
+      args.push(callback)    
+      f2.apply(_this, args)   
+    })
+    var _this = this;
+    f1.apply(_this, args)   
+  })
+  return compose.apply(null, funx)
+}
+
+module.exports = compose;
+},{}],4:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2469,7 +2618,7 @@ rpcManager.prototype.makeRequest = function (message, responseCallback){
 
 
 module.exports = rpcManager;
-},{}],3:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 
 //
 // heartBeat middleware
@@ -2495,7 +2644,7 @@ function hb(muzzData, next){
 }
 
 module.exports = hb;
-},{}],4:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2523,7 +2672,7 @@ function playerAction(muzzData, next){
 }
 
 module.exports = playerAction;
-},{}],5:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2555,7 +2704,7 @@ function playerQuit(muzzData, next){
 }
 
 module.exports = playerQuit;
-},{}],6:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_SIGNAL = 5;
 
@@ -2581,7 +2730,7 @@ function btnA(muzzData, next){
 }
 
 module.exports = btnA;
-},{}],7:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2607,7 +2756,24 @@ function transformControl(muzzData, next){
 }
 
 module.exports = transformControl;
-},{}],8:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
+
+//
+//  fileShare middleware
+//  Intercepts the fileshare iniciative
+//
+function fileShare(muzzData, next){
+  console.log(muzzData);
+  if (muzzData.d  && muzzData.d.a === 'sharingInvitation') {
+    //console.log(muzzData);
+  }else{
+    next(muzzData);
+  }
+
+}
+
+module.exports = fileShare;
+},{}],11:[function(require,module,exports){
 //Protocol message codes
 var MESSAGE_TYPE_REQUEST = 1;
 var MESSAGE_TYPE_RESPONSE = 2;
@@ -2842,7 +3008,7 @@ remoteCalls.prototype.sendSignal = function (data, pid, callback){
 };
 
 module.exports = remoteCalls;
-},{}],9:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 //
 // Remotes calls
 function remoteCalls(socket, rpcManager){
@@ -2940,30 +3106,7 @@ remoteCalls.prototype.quit = function (data, callback){
 };
 
 module.exports = remoteCalls;
-},{}],10:[function(require,module,exports){
-function compose () {
-  var funx = [].slice.call(arguments)
-  if(funx.length <= 1)
-    return funx[0]
-  var f1 = funx.shift()
-  var f2 = funx.shift()
-  
-  funx.unshift(function () {
-    var args = [].slice.call(arguments)
-    var callback = args.pop()
-    args.push(function () {
-      var args = [].slice.call(arguments)
-      args.push(callback)    
-      f2.apply(_this, args)   
-    })
-    var _this = this;
-    f1.apply(_this, args)   
-  })
-  return compose.apply(null, funx)
-}
-
-module.exports = compose;
-},{}],11:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var Eventify = require('eventify');
 var muzzleySDK = require('muzzley-client');
 var errors = require('./utils/error-browser.js');
@@ -3017,9 +3160,9 @@ muzzley = (function(muzzleySDK, options){
 
 
 
-},{"muzzley-client":"hdMu9z","./utils/error-browser.js":12,"eventify":13}],"muzzley-client":[function(require,module,exports){
+},{"muzzley-client":"hdMu9z","./utils/error-browser.js":14,"eventify":15}],"muzzley-client":[function(require,module,exports){
 module.exports=require('hdMu9z');
-},{}],14:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -3091,6 +3234,8 @@ var playerAction            = require('./middleware/activity/playerAction');
 var playerQuit              = require('./middleware/activity/playerQuit');
 var btnA                    = require('./middleware/activity/btnA');
 var transformControl        = require('./middleware/participant/transformControl');
+
+var fileShare               = require('./middleware/fileShare');
 
 //remoteCalls
 var activityRemoteCalls     = require('./remoteCalls/activity');
@@ -3252,7 +3397,7 @@ muzzMiddleware.prototype.connectApp = function(opts, callback){
     _this.middleFunctions.push(playerJoin);
     _this.middleFunctions.push(playerAction);
     _this.middleFunctions.push(playerQuit);
-    _this.middleFunctions.push(btnA);
+    _this.middleFunctions.push(fileShare);
 
 
 
@@ -3322,9 +3467,9 @@ muzzMiddleware.prototype.connectApp = function(opts, callback){
 
 module.exports = muzzMiddleware;
 })(require("__browserify_process"))
-},{"./utils/compose":10,"./rpcManager/rpcManager":2,"./middleware/heartBeat":3,"./middleware/activity/playerJoin":15,"./middleware/activity/playerAction":4,"./middleware/activity/playerQuit":5,"./middleware/activity/btnA":6,"./middleware/participant/transformControl":7,"./remoteCalls/activity":8,"./remoteCalls/participant":9,"eventify":13,"__browserify_process":14}],13:[function(require,module,exports){
+},{"./utils/compose":3,"./rpcManager/rpcManager":4,"./middleware/heartBeat":5,"./middleware/activity/playerJoin":17,"./middleware/activity/playerAction":6,"./middleware/activity/playerQuit":7,"./middleware/activity/btnA":8,"./middleware/participant/transformControl":9,"./middleware/fileShare":10,"./remoteCalls/activity":11,"./remoteCalls/participant":12,"eventify":15,"__browserify_process":16}],15:[function(require,module,exports){
 module.exports = require('./lib/eventify.js');
-},{"./lib/eventify.js":16}],16:[function(require,module,exports){
+},{"./lib/eventify.js":18}],18:[function(require,module,exports){
 (function(){// Eventify
 // -----------------
 // Copyright(c) 2010-2012 Jeremy Ashkenas, DocumentCloud
@@ -3539,7 +3684,7 @@ module.exports = require('./lib/eventify.js');
 // Establish the root object, `window` in the browser, or `global` on the server.
 }(this));
 })()
-},{}],12:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 var request = require('browser-request');
 
 var protocolVersion =  '1.0';
@@ -3565,7 +3710,7 @@ var sendError = function(error){
 
 module.exports.sendError = sendError;
 
-},{"browser-request":17}],15:[function(require,module,exports){
+},{"browser-request":19}],17:[function(require,module,exports){
 var Eventify = require('eventify');
 
 //Protocol message codes
@@ -3629,7 +3774,7 @@ function playerJoin(muzzData, next){
 }
 
 module.exports = playerJoin;
-},{"eventify":13}],17:[function(require,module,exports){
+},{"eventify":15}],19:[function(require,module,exports){
 (function(){// Browser Request
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -4020,7 +4165,7 @@ function b64_enc (data) {
 }
 
 })()
-},{"./xmlhttprequest":18}],18:[function(require,module,exports){
+},{"./xmlhttprequest":20}],20:[function(require,module,exports){
 (function(){
 
 !function(window) {
@@ -4595,5 +4740,5 @@ function b64_enc (data) {
 }(typeof window !== 'undefined' ? window : {});
 
 })()
-},{}]},{},[1,11])
+},{}]},{},[1,13,2])
 ;

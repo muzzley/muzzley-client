@@ -155,20 +155,70 @@ The `participant` object will have the activity participant's properties:
 
 The `participant` is also an `EventEmitter` that emits the following events:
 
+`action` This event is emitted every time a participant interacts and receives an `action` object that represents the participant's interaction.
+
 ```
 participant.on('action', function (action) {
-  
+  // Action object represents the participants interaction
+  console.log(action);
+});
+```
+
+`sharingInvitation` This event is emitted every time a participant starts a `share` from `assetsPicker` widget and you need to accept it or reject (if you ignore it will do a timeout).
+
+```
+participant.on('sharingInvitation', function (invite, cbAccept) {
+  // invite object contains the invitation properties
+  console.log(invite);
+
+  var reason = 'the reason why you accept or reject'
+
+  // you need allways to call the callback with true or false and a reason
+  // true accepts the invitation
+  // false rejects
+
+  cbAccept(true, reason);
+});
+```
+
+`sendFile` This event is emitted every time a participant is actualy sending a file (if you don't accept the `sharingInvitation` you will never get this event)
+
+```
+participant.on('sendFile', function (file) {
+  // "file" object contains all information about the file 
+  console.log(file);
 });
 
+```
+
+`sharingEnd` This event is emitted every time a share process ends
+
+```
+participant.on('sharingEnd', function (share) {
+  // share object represents the shareInvitation that ended
+  console.log(share);
+});
+
+```
+
+`sendMediaStream` This event is emitted every time a participant starts a stream from widget `cameraStream`
+
+```
+participant.on('sendMediaStream', function (stream) {
+  // stream object contains all information about the stream
+  console.log(stream);
+});
+
+```
+
+
+`quit` This event is emitted when the participant quits the activity.
+
+```
 participant.on('quit', function () {
   
 });
 ```
-
-`action` This event is emitted every time a participant interacts and receives an `action` object that represents the participant's interaction.
-
-`quit` This event is emitted when the participant quits the activity.
-
 #### participant.changeWidget()
 
 The `changeWidget` method instructs the participant's device (smartphone) to transform itself into the given widget identifier. After a successful transformation - or if some error occurs - the `callback` argument is called.

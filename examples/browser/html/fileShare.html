@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="/muzzley-client-0.3.0.js"></script>
+ </head>
+<body>
+  <h3>Muzzley JavaScript SDK Demo</h3>
+  <img id="qrCodeImg"/>
+  <script>
+    var debug = require(2);
+    debug.enable('*');
+    appLog = debug('muzzApp');
+
+    muzzley.on('error', function(err){
+      appLog('Error: ' + err);
+    });
+
+    appLog('connecting');
+    muzzley.connectApp('muzzlionaire', function(err, activity){
+      appLog('connected');
+      if (err) return appLog('Error: ' + err.toString());
+
+      var qrCodeImg = document.getElementById('qrCodeImg');
+      qrCodeImg.src = activity.qrCodeUrl;
+
+      appLog('activityCreated');
+      console.log(activity);
+      activity.on('participantQuit', function(participant){
+        appLog('"EVENT" participantQuit');
+      });
+
+      activity.on('participantJoin', function(participant){
+
+        appLog('participantJoined');
+        appLog('sending changeWidget');
+
+        participant.changeWidget('assetsPicker', function (err) {
+          if (err) return appLog("Error: " + err );
+
+          appLog('recived changeWidget okay');
+
+          participant.on('quit', function (action) {
+            // Action object represents the participants interaction
+            appLog('quit');
+            
+          });
+
+
+          participant.on('action', function (action) {
+            // Action object represents the participants interaction
+            appLog(action);
+          });
+        });
+      });
+    });
+  </script>
+</body>
+</html>
