@@ -201,6 +201,16 @@ participant.on('sharingEnd', function (share) {
 
 ```
 
+`sendMediaStream` This event is emitted every time a participant starts a stream from widget `cameraStream`
+
+```
+participant.on('sendMediaStream', function (stream) {
+  // stream object contains all information about the stream
+  console.log(stream);
+});
+
+```
+
 
 `quit` This event is emitted when the participant quits the activity.
 
