@@ -1,7 +1,7 @@
 var muzzley = require('../lib/node-dist.js');
 
 
-muzzley.joinActivity('guest','muzzcar1', function(err, paticipant){
+muzzley.joinActivity('guest','activity-code', function(err, paticipant){
   if (err) return console.log('err:' +  err);
   //console.log(paticipant);
   console.log('joinedActivity');

@@ -2,7 +2,7 @@ var argv = require('optimist').argv;
 var muzzley = require('../lib/dist-node.js');
 
 //Catch the app token passed 
-var appToken = argv.t ? argv.t : 'muzzlionaire';
+var appToken = argv.t ? argv.t : 'your-app-token';
 
 console.log(appToken);
 console.log('##Activity: creating activity');

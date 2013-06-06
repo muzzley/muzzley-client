@@ -16,7 +16,8 @@
     });
 
     appLog('connecting');
-    muzzley.connectApp('muzzlionaire', function(err, activity){
+
+    muzzley.connectApp('your-app-token', function(err, activity){
       appLog('connected');
       if (err) return appLog('Error: ' + err.toString());
 

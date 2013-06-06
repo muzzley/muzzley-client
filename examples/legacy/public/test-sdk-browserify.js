@@ -10,7 +10,7 @@ var options = {
 
 var muzzleyConnection = new muzzley(options);
 
-muzzleyConnection.createActivity('muzzlionaire', function(err, activity){
+muzzleyConnection.createActivity('your-app-token', function(err, activity){
 
   if (err) return console.log("err: " + err );
 

@@ -1,6 +1,6 @@
 var muzzley = require('../../lib/dist-node.js');
 
-var appToken = 'muzzlionaire';
+var appToken = 'your-app-token';
 
 console.log(appToken);
 console.log('##Activity: creating activity');

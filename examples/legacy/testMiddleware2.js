@@ -24,7 +24,7 @@ muzzleyApp.on('error', function(err){
   console.log(err);
 });
 
-muzzleyApp.connectApp('muzzlionaire');
+muzzleyApp.connectApp('your-app-token');
 muzzleyApp.on('buttonA', function(player){
   console.log(player);
 });

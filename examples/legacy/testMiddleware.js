@@ -41,7 +41,7 @@ muzzleyConnection.on('participantJoin', function(participant){
   console.log('participant joined');
 });
 
-muzzleyConnection.connectApp('muzzlionaire', function(err, activity){
+muzzleyConnection.connectApp('your-app-token', function(err, activity){
 
   var qrCodeImg = document.getElementById('qrCodeImg');
 
