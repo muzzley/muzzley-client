@@ -58,6 +58,11 @@ muzzley.connectApp(appToken, function(err, activity){
         console.log(action);
       });
 
+      participant.on('sharingCancel', function (action) {
+        // Action object represents the participants interaction
+        console.log(action);
+      });
+
     });
   });
 });

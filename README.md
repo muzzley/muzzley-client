@@ -191,6 +191,17 @@ participant.on('sharingFile', function (file) {
 
 ```
 
+`sharingCancel` This event is emitted when a share process is canceled
+
+```
+participant.on('sharingCancel', function (share) {
+  // share object represents the share that was canceled
+  console.log(share);
+});
+
+```
+
+
 `sharingEnd` This event is emitted every time a share process ends
 
 ```

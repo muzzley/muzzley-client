@@ -15,7 +15,8 @@
     "shoe":"*",
     "JSONStream":"*",
     "request":"*",
-    "browser-request":"*"
+    "browser-request":"*",
+    "reqwest":"*"
   },
   "repository": {
     "type": "git",

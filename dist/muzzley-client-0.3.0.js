@@ -2379,6 +2379,9 @@ if (typeof define === 'function' && define.amd) {
 // [*] End of lib/all.js
 })()
 },{}],2:[function(require,module,exports){
+// Borrowed from Dominic Tarr's ubelt project:
+// https://github.com/dominictarr/ubelt/blob/master/async.js
+
 function compose () {
   var funx = [].slice.call(arguments)
   if(funx.length <= 1)
@@ -2441,10 +2444,11 @@ rpcManager.prototype.handleResponse = function (muzzData, next) {
       clearTimeout(entry.timeout);
       delete requests[correlationId];
 
-      //Check if the message is an error
-      if (muzzData.s === false) {
-        this.trigger('error', muzzData);
-        return entry.callback(muzzData);
+      //Check if the message is an error and is not a redirect (connectTo)
+      var isRedirect = muzzData.d && muzzData.d.connectTo;
+      if (muzzData.s === false && !isRedirect) {
+        var errMsg = muzzData.m || 'Unknown error';
+        return entry.callback(new Error(errMsg), muzzData);
       }
       return entry.callback(null, muzzData);
     }
@@ -2532,7 +2536,7 @@ var MESSAGE_TYPE_SIGNAL = 5;
 function playerAction(muzzData, next){
   var _this = this;
   // if is a ready signal of the 'participantJoin'
-  if (muzzData.h.t  === MESSAGE_TYPE_SIGNAL && muzzData.h.pid){
+  if (muzzData.h.t  === MESSAGE_TYPE_SIGNAL && muzzData.h.pid && muzzData.d.a === undefined ){
     //Check if the player exists
     if(_this.participants[muzzData.h.pid]){
       _this.participants[muzzData.h.pid].trigger('action', muzzData.d);
@@ -2547,13 +2551,6 @@ function playerAction(muzzData, next){
 
 module.exports = playerAction;
 },{}],6:[function(require,module,exports){
-//Protocol message codes
-var MESSAGE_TYPE_REQUEST = 1;
-var MESSAGE_TYPE_RESPONSE = 2;
-var MESSAGE_TYPE_REQUEST_CORE = 3;
-var MESSAGE_TYPE_RESPONSE_CORE = 4;
-var MESSAGE_TYPE_SIGNAL = 5;
-
 //
 // PlayerQuit middleware
 //
@@ -2605,39 +2602,488 @@ function btnA(muzzData, next){
 
 module.exports = btnA;
 },{}],8:[function(require,module,exports){
-//Protocol message codes
-var MESSAGE_TYPE_REQUEST = 1;
-var MESSAGE_TYPE_RESPONSE = 2;
-var MESSAGE_TYPE_REQUEST_CORE = 3;
-var MESSAGE_TYPE_RESPONSE_CORE = 4;
-var MESSAGE_TYPE_SIGNAL = 5;
 
 //
-// PlayerJoin middleware
+//  fileShare middleware
+//  Intercepts the file sharing initiation
 //
-function transformControl(muzzData, next){
+function fileShareInvite(muzzData, next){
   var _this = this;
-  // if is a transform control unit request
-  if (muzzData.h.t  === MESSAGE_TYPE_REQUEST && muzzData.a === 'signal' && muzzData.d.a ==='changeWidget'){
+  if (muzzData.d  && muzzData.d.a === 'sharingInvitation') {
     //Check if the player exists
-    _this.remoteCalls.successResponse(muzzData.h);
-    _this.trigger('changeWidget', muzzData.d);
-    _this.participant.trigger('changeWidget', muzzData.d);
+    if(_this.participants[muzzData.h.pid]){
+      _this.participants[muzzData.h.pid].trigger('sharingInvitation', muzzData.d, function(accept, reason){
+        _this.remoteCalls.fileShareInvitationResponse(muzzData.h, accept, reason);
+      });
+      next(muzzData);
+    }
   }else{
     next(muzzData);
   }
+}
+
+//
+//  reciveFile middleware
+//  Triggers sharingFile everytime the assetsPicket starts sending a file
+//
+function receiveFile(muzzData, next){
+  var _this = this;
+  if (muzzData.d  && muzzData.a === 'receiveFile') {
+    //Check if the player exists
+    if(_this.participants[muzzData.d.participantId]){
+      _this.participants[muzzData.d.participantId].trigger('sharingFile', muzzData.d);
+    }
+    next(muzzData);
+  }else{
+    next(muzzData);
+  }
+}
+
+
+//
+//  sharingEnd middleware
+//  Triggers sharingEnd when a file sharing session is terminated
+//
+function sharingEnd(muzzData, next){
+
+  var _this = this;
+  if (muzzData.d  && muzzData.d.a === 'sharingEnd') {
+    //Check if the player exists
+    if(_this.participants[muzzData.h.pid]){
+      _this.participants[muzzData.h.pid].trigger('sharingEnd', muzzData.d);
+      _this.remoteCalls.successResponse(muzzData.h);
+    }
+    next(muzzData);
+  }else{
+    next(muzzData);
+  }
+}
+
+
+//
+//  sharingCancel middleware
+//  Triggers when a sharing session is canceled
+//
+function sharingCancel(muzzData, next){
+
+  var _this = this;
+  if (muzzData.d  && muzzData.d.a === 'sharingCancel') {
+    //Check if the player exists
+    if(_this.participants[muzzData.h.pid]){
+      _this.participants[muzzData.h.pid].trigger('sharingCancel', muzzData.d);
+      _this.remoteCalls.successResponse(muzzData.h);
+    }
+    next(muzzData);
+  }else{
+    next(muzzData);
+  }
+}
+
+
+module.exports.fileShareInvite = fileShareInvite;
+module.exports.receiveFile = receiveFile;
+module.exports.sharingEnd = sharingEnd;
+},{}],9:[function(require,module,exports){
+//
+//  mediaStream middleware
+//  Intercepts the mediaStream iniciative
+//
+function mediaStreamInvite(muzzData, next){
+  console.log(muzzData);
+  var _this = this;
+  if (muzzData.d  && muzzData.a === 'receiveMediaStream') {
+    //Check if the player exists
+    if(_this.participants[muzzData.d.participantId]){
+      _this.participants[muzzData.d.participantId].trigger('sendMediaStream', muzzData.d);
+      _this.remoteCalls.successResponse(muzzData.h);
+      next(muzzData);
+    }
+  }else{
+    next(muzzData);
+  }
+}
+
+module.exports = mediaStreamInvite;
+},{}],10:[function(require,module,exports){
+var Eventify = require('eventify');
+var muzzleySDK = require('muzzley-client');
+var errors = require('./utils/error-browser.js');
+
+var options = {
+  socket: SockJS,
+  //endPoint: 'http://platform.geo.muzzley.com/web'
+  endPoint: 'http://localhost:8082/web'
+};
+
+muzzley = (function(muzzleySDK, options){
+  var muzz = function() {};
+
+  //Console.log fallback to prevent errors
+  if (!window.console) {
+    window.console = {
+      log : function() {}
+    };
+  }
+
+  muzz.prototype.connectApp = function(opts, callback){
+    var _this = this;
+    var muzzleyConnection = new muzzleySDK(options);
+    muzzleyConnection.connectApp(opts, callback);
+
+    //Bubble error up
+    muzzleyConnection.on('error', function(error){
+      if (error.error === 'Timeout') {
+        errors.sendError(error);
+      }
+      _this.trigger('error', error);
+    });
+
+    muzzleyConnection.on('disconnect', function(err){
+      _this.trigger('disconnect', err);
+    });
+  };
+
+
+
+  var returnValue = new muzz();
+  //Enable events on the module
+  Eventify.enable(returnValue);
+  return returnValue;
+
+})(muzzleySDK, options);
+
+
+
+
+
+},{"muzzley-client":"hdMu9z","./utils/error-browser.js":11,"eventify":12}],"muzzley-client":[function(require,module,exports){
+module.exports=require('hdMu9z');
+},{}],13:[function(require,module,exports){
+// shim for using process in browser
+
+var process = module.exports = {};
+
+process.nextTick = (function () {
+    var canSetImmediate = typeof window !== 'undefined'
+    && window.setImmediate;
+    var canPost = typeof window !== 'undefined'
+    && window.postMessage && window.addEventListener
+    ;
+
+    if (canSetImmediate) {
+        return function (f) { return window.setImmediate(f) };
+    }
+
+    if (canPost) {
+        var queue = [];
+        window.addEventListener('message', function (ev) {
+            if (ev.source === window && ev.data === 'process-tick') {
+                ev.stopPropagation();
+                if (queue.length > 0) {
+                    var fn = queue.shift();
+                    fn();
+                }
+            }
+        }, true);
+
+        return function nextTick(fn) {
+            queue.push(fn);
+            window.postMessage('process-tick', '*');
+        };
+    }
+
+    return function nextTick(fn) {
+        setTimeout(fn, 0);
+    };
+})();
+
+process.title = 'browser';
+process.browser = true;
+process.env = {};
+process.argv = [];
+
+process.binding = function (name) {
+    throw new Error('process.binding is not supported');
+}
+
+// TODO(shtylman)
+process.cwd = function () { return '/' };
+process.chdir = function (dir) {
+    throw new Error('process.chdir is not supported');
+};
+
+},{}],"hdMu9z":[function(require,module,exports){
+(function(process){//Lib details
+var version = '0.3.0';
+var protocol = '1.0';
+
+var Eventify                = require('eventify');
+var compose                 = require('./utils/compose');
+
+//RPCmanager
+var rpcManager              = require('./rpcManager/rpcManager');
+
+//midlewares
+var hb                      = require('./middleware/heartBeat');
+var playerJoin              = require('./middleware/activity/playerJoin');
+var playerAction            = require('./middleware/activity/playerAction');
+var playerQuit              = require('./middleware/activity/playerQuit');
+var btnA                    = require('./middleware/activity/btnA');
+var transformControl        = require('./middleware/participant/transformControl');
+
+var fileShareInvite         = require('./middleware/fileShare').fileShareInvite;
+var receiveFile             = require('./middleware/fileShare').receiveFile;
+var sharingEnd             = require('./middleware/fileShare').sharingEnd;
+
+var mediaStream             = require('./middleware/mediaStream');
+
+//remoteCalls
+var activityRemoteCalls     = require('./remoteCalls/activity');
+var participantRemoteCalls  = require('./remoteCalls/participant');
+
+
+//
+// MAIN
+//
+
+function muzzMiddleware(options){
+
+  this.socket = options.socket;
+  this.endPoint = options.endPoint;
+
+  this.middleFunctions = [];
+  this.participants = {};
+
+
+  //Enable events for this muzzley instance
+  Eventify.enable(this);
 
 }
 
-module.exports = transformControl;
-},{}],9:[function(require,module,exports){
-//Protocol message codes
-var MESSAGE_TYPE_REQUEST = 1;
-var MESSAGE_TYPE_RESPONSE = 2;
-var MESSAGE_TYPE_REQUEST_CORE = 3;
-var MESSAGE_TYPE_RESPONSE_CORE = 4;
-var MESSAGE_TYPE_SIGNAL = 5;
+/*
+*   Main function that connects you to muzzley as a Participant
+*
+*/
+muzzMiddleware.prototype.connectUser = function(userToken, activityId, callback){
+  //remember this
+  var _this = this;
 
+  this._socket = new this.socket(this.endPoint);
+  this._socket.onopen = function()  {
+    //Create rpcManager for this socket
+    _this.rpcManager = new rpcManager(_this._socket);
+    _this.remoteCalls = new participantRemoteCalls(_this._socket, _this.rpcManager);
+
+    //Configure default middlewares
+    _this.middleFunctions.push(hb);
+    _this.middleFunctions.push(_this.rpcManager.handleResponse);
+    _this.middleFunctions.push(transformControl);
+    _this.runMiddlewares = compose.apply(this, _this.middleFunctions);
+
+
+
+   _this.remoteCalls.handshake(function(err, muzzData){
+      //If error return the error.
+      if (err) {
+        _this.trigger('error', err);
+        return callback(err);
+      }
+
+      _this.remoteCalls.authUser(userToken, function(err, muzzData){
+        if (err) {
+          _this.trigger('error', err);
+          return callback(err);
+        }
+
+        _this.remoteCalls.joinActivity(activityId, function(err, muzzData){
+          if (err) {
+            _this.trigger('error', err);
+            return callback(err);
+          }
+
+          if (muzzData.d && muzzData.d.connectTo) {
+            //We're being redirected
+            if(process.browser){
+              _this.endPoint = 'http://' + muzzData.d.connectTo + '/web';
+            }else{
+              _this.endPoint = 'ws://' + muzzData.d.connectTo + '/ws';
+            }
+            return _this.joinActivity(userToken, activityId, callback);
+          }
+
+          //Create the participant object
+          var participant = {
+            id: muzzData.d.participant.id,
+            name: muzzData.d.participant.name,
+            photoUrl: muzzData.d.participant.photoUrl,
+            sendWidgetData: function(data) {
+              _this.remoteCalls.sendWidgetData(data);
+            }
+          };
+
+          var activity = {
+            id: activityId
+          };
+
+          // Enable Events on the participant
+          Eventify.enable(participant);
+
+          // Add the activity object to the current context _this
+          _this.participant = participant;
+
+
+          //Send Ready event to activity
+          _this.remoteCalls.sendReady(function(err, muzzData){
+            _this.trigger("joined", null, _this.participant);
+            if (callback){
+              return callback(null, _this.participant);
+            }
+            else return ;
+          });
+
+
+        });
+
+      });
+    });
+
+  _this._socket.onmessage = function(message) {
+    _this.runMiddlewares(message, function (muzzData) {
+      // If a message arrives here it's because it passed
+      // through the whole middleware chain.
+    });
+  };
+
+  };
+};
+
+
+/*
+*   Main function that connects you to muzzley as a app
+*
+*/
+muzzMiddleware.prototype.connectApp = function(appToken, callback){
+  //If no callback passed define an empety one
+  if (typeof(callback) !== 'function') var callback = function(){};
+
+  //remember this
+  var _this = this;
+
+  _this._socket = new this.socket(this.endPoint);
+
+  // connection timeout ms
+  var TIMEOUT = 5000;
+
+  // Connection Timeout 
+  var connectionTimeout = setTimeout(function () {
+    _this.trigger('error', {error:'Timeout'});
+  }, TIMEOUT);
+
+
+  _this._socket.onerror = function(error)  {
+    //Clear conncetion timeout
+    clearTimeout(connectionTimeout);
+    _this.trigger('error', error);
+  };
+  //On socket connection stablished
+  _this._socket.onopen = function()  {
+
+    //Clear conncetion timeout
+    clearTimeout(connectionTimeout);
+
+    //create rpcManager for this socket
+    _this.rpcManager = new rpcManager(_this._socket);
+    _this.remoteCalls = new activityRemoteCalls(_this._socket, _this.rpcManager);
+
+    //Configure default middlewares
+    _this.middleFunctions.push(hb);
+    _this.middleFunctions.push(_this.rpcManager.handleResponse);
+    _this.middleFunctions.push(playerJoin);
+    _this.middleFunctions.push(playerAction);
+    _this.middleFunctions.push(playerQuit);
+    _this.middleFunctions.push(fileShareInvite);
+    _this.middleFunctions.push(receiveFile);
+    _this.middleFunctions.push(sharingEnd);
+    _this.middleFunctions.push(mediaStream);
+
+
+
+
+    //Compose the midleware functions
+    _this.runMiddlewares = compose.apply(this, _this.middleFunctions);
+
+
+    _this.remoteCalls.handshake(function(err, muzzData){
+      //If error return the error.
+      if (err) {
+        _this.trigger('error', err);
+        return callback(err);
+      }
+
+      _this.remoteCalls.loginApp(appToken, function(err, muzzData){
+        //If error return the error.
+        if (err) {
+          _this.trigger('error', err);
+          return callback(err);
+        }
+
+        _this.remoteCalls.createActivity(function(err, muzzData){
+          //If error return the error.
+          if (err) {
+            _this.trigger('error', err);
+            return callback(err);
+          }
+
+          if (muzzData.d && muzzData.d.connectTo) {
+            //We're being redirected
+            if(process.browser){
+              _this.endPoint = 'http://' + muzzData.d.connectTo + '/web';
+            }else{
+              _this.endPoint = 'ws://' + muzzData.d.connectTo + '/ws';
+            }
+            return _this.connectApp(appToken, callback);
+          }
+
+          //Create the activity object
+          var activity = {
+            activityId: muzzData.d.activityId,
+            qrCodeUrl: muzzData.d.qrCodeUrl
+          };
+
+          // Enable Events on activity
+          Eventify.enable(activity);
+
+          // Add the activity object to the current context _this
+          _this.activity = activity;
+
+          _this.trigger("connected", activity);
+          if (callback){
+            callback(null, activity);
+          }
+          else return ;
+
+        });
+
+      });
+
+    });
+
+  };
+
+  //Function to handle socket messages
+  _this._socket.onmessage = function(message) {
+    _this.runMiddlewares(message, function (muzzData) {
+      // If a message arrives here it's because it passed
+      // through the whole middleware chain.
+    });
+  };
+};
+
+module.exports = muzzMiddleware;
+})(require("__browserify_process"))
+},{"./utils/compose":2,"./rpcManager/rpcManager":3,"./middleware/heartBeat":4,"./middleware/activity/playerJoin":14,"./middleware/activity/playerAction":5,"./middleware/activity/playerQuit":6,"./middleware/activity/btnA":7,"./middleware/participant/transformControl":15,"./middleware/fileShare":8,"./middleware/mediaStream":9,"./remoteCalls/activity":16,"./remoteCalls/participant":17,"eventify":12,"__browserify_process":13}],16:[function(require,module,exports){
+var commons = require('./commons.js');
+var messageTypes = require('../utils/messageTypes');
 //
 // Remotes calls
 function remoteCalls(socket, rpcManager){
@@ -2645,34 +3091,19 @@ function remoteCalls(socket, rpcManager){
   this.rpcManager = rpcManager;
 }
 
+remoteCalls.prototype.handshake = commons.handshake;
 
-remoteCalls.prototype.handshake = function(callback){
-  var handshakeJSON = {
-    a: 'handshake',
-    d: {
-      // Mandatory
-      protocolVersion: '1.0',
-      // All the following are optional and experimental
-      lib: 'nodejs',
-      userAgent: 'muzzley-client',
-      connection: 'LAN',
-      contentType: 'application/json'
-    }
-  };
-  this.rpcManager.makeRequest(handshakeJSON, callback);
-
-};
-
-remoteCalls.prototype.loginApp = function(callback){
+remoteCalls.prototype.loginApp = function(appToken, callback){
   var loginApp = {
     a: 'loginApp',
     d: {
-      token: 'muzzlionaire' //TODO: Token passed in opts
+      token: appToken
     }
   };
-  this.rpcManager.makeRequest(loginApp, callback);
 
+  this.rpcManager.makeRequest(loginApp, callback);
 };
+
 remoteCalls.prototype.createActivity = function(callback){
   var createActivity = {
     a: 'create'
@@ -2682,18 +3113,20 @@ remoteCalls.prototype.createActivity = function(callback){
 };
 
 
-remoteCalls.prototype.successResponse = function(originalHeader){
+remoteCalls.prototype.successResponse = commons.successResponse;
+
+remoteCalls.prototype.fileShareInvitationResponse = function(originalHeader, accept, reason){
 
   var msg = {
     h: originalHeader,
-    s: true
+    s: true,
+    d: {
+      accept: accept,
+      reason: reason
+    }
   };
 
-  if (originalHeader.t === MESSAGE_TYPE_REQUEST) {
-    msg.h.t = MESSAGE_TYPE_RESPONSE;
-  } else if (originalHeader.t === MESSAGE_TYPE_REQUEST_CORE) {
-    msg.h.t = MESSAGE_TYPE_RESPONSE_CORE;
-  }
+  msg.h.t = messageTypes.MESSAGE_TYPE_RESPONSE;
 
   this.socket.send(JSON.stringify(msg));
 
@@ -2865,7 +3298,10 @@ remoteCalls.prototype.sendSignal = function (data, pid, callback){
 };
 
 module.exports = remoteCalls;
-},{}],10:[function(require,module,exports){
+},{"./commons.js":18,"../utils/messageTypes":19}],17:[function(require,module,exports){
+var commons = require('./commons.js');
+var messageTypes = require('../utils/messageTypes');
+
 //
 // Remotes calls
 function remoteCalls(socket, rpcManager){
@@ -2873,28 +3309,13 @@ function remoteCalls(socket, rpcManager){
   this.rpcManager = rpcManager;
 }
 
+remoteCalls.prototype.handshake = commons.handshake;
 
-remoteCalls.prototype.handshake = function(callback){
-  var handshakeJSON = {
-    a: 'handshake',
-    d: {
-      // Mandatory
-      protocolVersion: '1.0',
-      // All the following are optional and experimental
-      lib: 'nodejs',
-      userAgent: 'muzzley-client',
-      connection: 'LAN',
-      contentType: 'application/json'
-    }
-  };
-  this.rpcManager.makeRequest(handshakeJSON, callback);
-
-};
 remoteCalls.prototype.authUser = function(userToken, callback){
   var authUser = {
     a: 'loginUser',
     d: {
-      token: userToken //TODO: Token passed in opts
+      token: userToken
     }
   };
   this.rpcManager.makeRequest(authUser, callback);
@@ -2920,29 +3341,9 @@ remoteCalls.prototype.sendReady = function(callback){
   this.rpcManager.makeRequest(sendReady, callback);
 };
 
-remoteCalls.prototype.successResponse = function(originalHeader){
-  //Protocol message codes
-  var MESSAGE_TYPE_REQUEST = 1;
-  var MESSAGE_TYPE_RESPONSE = 2;
-  var MESSAGE_TYPE_REQUEST_CORE = 3;
-  var MESSAGE_TYPE_RESPONSE_CORE = 4;
+remoteCalls.prototype.successResponse = commons.successResponse;
 
-  var msg = {
-    h: originalHeader,
-    s: true
-  };
-
-  if (originalHeader.t === MESSAGE_TYPE_REQUEST) {
-    msg.h.t = MESSAGE_TYPE_RESPONSE;
-  } else if (originalHeader.t === MESSAGE_TYPE_REQUEST_CORE) {
-    msg.h.t = MESSAGE_TYPE_RESPONSE_CORE;
-  }
-
-  this.socket.send(JSON.stringify(msg));
-
-};
-
-remoteCalls.prototype.sendWidgetData= function (data){
+remoteCalls.prototype.sendWidgetData = function (data){
   var msg = {
     h: {
       t: 5
@@ -2963,366 +3364,78 @@ remoteCalls.prototype.quit = function (data, callback){
 };
 
 module.exports = remoteCalls;
-},{}],11:[function(require,module,exports){
-var Eventify = require('eventify');
-var muzzleySDK = require('muzzley-client');
-var errors = require('./utils/error-browser.js');
+},{"./commons.js":18,"../utils/messageTypes":19}],15:[function(require,module,exports){
+var messageTypes = require('../../utils/messageTypes');
 
-var options = {
-  socket: SockJS,
-  endPoint:'http://asd'
-  //endPoint:'http://platform.geo.muzzley.com/web'
-};
-
-muzzley = (function(muzzleySDK, options){
-  var muzz = function() {};
-
-  //Console.log fallback to prevent errors
-  if (!window.console) {
-    window.console = {
-      log : function() {}
-    };
+//
+// PlayerJoin middleware
+//
+function transformControl(muzzData, next){
+  var _this = this;
+  // if is a transform control unit request
+  if (muzzData.h.t  === messageTypes.MESSAGE_TYPE_REQUEST && muzzData.a === 'signal' && muzzData.d.a ==='changeWidget'){
+    //Check if the player exists
+    _this.remoteCalls.successResponse(muzzData.h);
+    _this.trigger('changeWidget', muzzData.d);
+    _this.participant.trigger('changeWidget', muzzData.d);
+  }else{
+    next(muzzData);
   }
 
-  muzz.prototype.connectApp = function(opts, callback){
-    var _this = this;
-    var muzzleyConnection = new muzzleySDK(options);
-    muzzleyConnection.connectApp(opts, callback);
-
-    //Bubble error up
-    muzzleyConnection.on('error', function(error){
-      if (error.error === 'Timeout'){
-        errors.sendError(error);
-      }
-      _this.trigger('error', error);
-    });
-
-    muzzleyConnection.on('disconnect', function(err){
-      _this.trigger('disconnect', err);
-    });
-  };
-
-
-
-  var returnValue = new muzz();
-  //Enable events on the module
-  Eventify.enable(returnValue);
-  return returnValue;
-
-})(muzzleySDK, options);
-
-
-
-
-
-},{"muzzley-client":"hdMu9z","./utils/error-browser.js":12,"eventify":13}],"muzzley-client":[function(require,module,exports){
-module.exports=require('hdMu9z');
-},{}],14:[function(require,module,exports){
-// shim for using process in browser
-
-var process = module.exports = {};
-
-process.nextTick = (function () {
-    var canSetImmediate = typeof window !== 'undefined'
-    && window.setImmediate;
-    var canPost = typeof window !== 'undefined'
-    && window.postMessage && window.addEventListener
-    ;
-
-    if (canSetImmediate) {
-        return function (f) { return window.setImmediate(f) };
-    }
-
-    if (canPost) {
-        var queue = [];
-        window.addEventListener('message', function (ev) {
-            if (ev.source === window && ev.data === 'process-tick') {
-                ev.stopPropagation();
-                if (queue.length > 0) {
-                    var fn = queue.shift();
-                    fn();
-                }
-            }
-        }, true);
-
-        return function nextTick(fn) {
-            queue.push(fn);
-            window.postMessage('process-tick', '*');
-        };
-    }
-
-    return function nextTick(fn) {
-        setTimeout(fn, 0);
-    };
-})();
-
-process.title = 'browser';
-process.browser = true;
-process.env = {};
-process.argv = [];
-
-process.binding = function (name) {
-    throw new Error('process.binding is not supported');
 }
 
-// TODO(shtylman)
-process.cwd = function () { return '/' };
-process.chdir = function (dir) {
-    throw new Error('process.chdir is not supported');
+module.exports = transformControl;
+},{"../../utils/messageTypes":19}],19:[function(require,module,exports){
+exports = module.exports = {
+  MESSAGE_TYPE_REQUEST: 1,
+  MESSAGE_TYPE_RESPONSE: 2,
+  MESSAGE_TYPE_REQUEST_CORE: 3,
+  MESSAGE_TYPE_RESPONSE_CORE: 4,
+  MESSAGE_TYPE_SIGNAL: 5
 };
-
-},{}],"hdMu9z":[function(require,module,exports){
-(function(process){//Lib details
-var version = '0.3.0';
-var protocol = '1.0';
-
-var Eventify                = require('eventify');
-var compose                 = require('./utils/compose');
-
-//RPCmanager
-var rpcManager              = require('./rpcManager/rpcManager');
-
-//midlewares
-var hb                      = require('./middleware/heartBeat');
-var playerJoin              = require('./middleware/activity/playerJoin');
-var playerAction            = require('./middleware/activity/playerAction');
-var playerQuit              = require('./middleware/activity/playerQuit');
-var btnA                    = require('./middleware/activity/btnA');
-var transformControl        = require('./middleware/participant/transformControl');
-
-//remoteCalls
-var activityRemoteCalls     = require('./remoteCalls/activity');
-var participantRemoteCalls  = require('./remoteCalls/participant');
-
-
-//
-// MAIN
-//
-
-function muzzMiddleware(options){
-
-  this.socket = options.socket;
-  this.endPoint = options.endPoint;
-
-  this.middleFunctions = [];
-  this.participants = {};
-
-
-  //Enable events for this muzzley instance
-  Eventify.enable(this);
-
-}
-
-/*
-*   Main function that connects you to muzzley as a Participant
-*
-*/
-muzzMiddleware.prototype.connectUser = function(userToken, activityId, callback){
-  //remember this
-  var _this = this;
-
-  this._socket = new this.socket(this.endPoint);
-  this._socket.onopen = function()  {
-    //create rpcManager for this socket
-    _this.rpcManager = new rpcManager(_this._socket);
-    _this.remoteCalls = new participantRemoteCalls(_this._socket, _this.rpcManager);
-
-    //Configure default middlewares
-    _this.middleFunctions.push(hb);
-    _this.middleFunctions.push(_this.rpcManager.handleResponse);
-    _this.middleFunctions.push(transformControl);
-    _this.runMiddlewares = compose.apply(this, _this.middleFunctions);
-
-
-
-   _this.remoteCalls.handshake(function(err, muzzData){
-      //If error return the error.
-      if(err) return callback(err);
-
-      _this.remoteCalls.authUser(userToken, function(err, muzzData){
-        if(err) return callback(err);
-
-        _this.remoteCalls.joinActivity(activityId, function(err, muzzData){
-          if (err) {
-            //IF the error as a connectTo then reconnect
-            if (err.d.connectTo){
-
-              if(process.browser){
-                _this.endPoint = 'http://' + err.d.connectTo + '/web';
-              }else{
-                _this.endPoint = 'ws://' + err.d.connectTo + '/ws';
-              }
-
-              return _this.joinActivity(userToken, activityId, callback);
-
-            }else{
-              return callback(err);
-            }
-          }
-
-          //Create the participant object
-          var participant = {
-            id: muzzData.d.participant.id,
-            name: muzzData.d.participant.name,
-            photoUrl: muzzData.d.participant.photoUrl,
-            sendWidgetData: function(data) {
-              _this.remoteCalls.sendWidgetData(data);
-            }
-          };
-
-          var activity = {
-            id: activityId
-          };
-
-          // Enable Events on the participant
-          Eventify.enable(participant);
-
-          // Add the activity object to the current context _this
-          _this.participant = participant;
-
-
-          //Send Ready event to activity
-          _this.remoteCalls.sendReady(function(err, muzzData){
-            _this.trigger("joined", null, _this.participant);
-            if (callback){
-              return callback(null, _this.participant);
-            }
-            else return ;
-          });
-
-
-        });
-
-      });
-    });
-
-  _this._socket.onmessage = function(message) {
-    _this.runMiddlewares(message, function (muzzData) {
-      // If a message arrives here it's because it passed
-      // through the whole middleware chain.
-    });
-  };
-
-  };
-};
-
-
-/*
-*   Main function that connects you to muzzley as a app
-*
-*/
-muzzMiddleware.prototype.connectApp = function(opts, callback){
-  //If no callback passed define an empety one
-  if (typeof(callback) !== 'function') var callback = function(){};
-
-  //remember this
-  var _this = this;
-
-  _this._socket = new this.socket(this.endPoint);
-
-  // connection timeout ms
-  var TIMEOUT = 5000;
-
-  // Connection Timeout 
-  var connectionTimeout = setTimeout(function () {
-    _this.trigger('error', {error:'Timeout'});
-  }, TIMEOUT);
-
-
-  _this._socket.onerror = function(error)  {
-    //Clear conncetion timeout
-    clearTimeout(connectionTimeout);
-    _this.trigger('error', error);
-  };
-  //On socket connection stablished
-  _this._socket.onopen = function()  {
-
-    //Clear conncetion timeout
-    clearTimeout(connectionTimeout);
-
-    //create rpcManager for this socket
-    _this.rpcManager = new rpcManager(_this._socket);
-    _this.remoteCalls = new activityRemoteCalls(_this._socket, _this.rpcManager);
-
-    //Configure default middlewares
-    _this.middleFunctions.push(hb);
-    _this.middleFunctions.push(_this.rpcManager.handleResponse);
-    _this.middleFunctions.push(playerJoin);
-    _this.middleFunctions.push(playerAction);
-    _this.middleFunctions.push(playerQuit);
-    _this.middleFunctions.push(btnA);
-
-
-
-    //Compose the midleware functions
-    _this.runMiddlewares = compose.apply(this, _this.middleFunctions);
-
-
-    _this.remoteCalls.handshake(function(err, muzzData){
-      //If error return the error.
-      if(err) return callback(err);
-
-      _this.remoteCalls.loginApp(function(err, muzzData){
-        //If error return the error.
-        if(err) return callback(err);
-
-        _this.remoteCalls.createActivity(function(err, muzzData){
-          //If error return the error.
-          if (err) {
-            //IF the error as a connectTo then reconnect
-            if (err.d.connectTo){
-
-              if(process.browser){
-                _this.endPoint = 'http://' + err.d.connectTo + '/web';
-              }else{
-                _this.endPoint = 'ws://' + err.d.connectTo + '/ws';
-              }
-              return _this.connectApp(opts, callback);
-            }else{
-              return callback(err);
-            }
-          }
-
-          //Create the activity object
-          var activity = {
-            activityId: muzzData.d.activityId,
-            qrCodeUrl: muzzData.d.qrCodeUrl
-          };
-
-          // Enable Events on activity
-          Eventify.enable(activity);
-
-          // Add the activity object to the current context _this
-          _this.activity = activity;
-
-          _this.trigger("connected", activity);
-          if (callback){
-            callback(null, activity);
-          }
-          else return ;
-
-        });
-
-      });
-
-    });
-
-  };
-
-  //Function to handle socket messages
-  _this._socket.onmessage = function(message) {
-    _this.runMiddlewares(message, function (muzzData) {
-      // If a message arrives here it's because it passed
-      // through the whole middleware chain.
-    });
-  };
-};
-
-module.exports = muzzMiddleware;
-})(require("__browserify_process"))
-},{"./utils/compose":2,"./rpcManager/rpcManager":3,"./middleware/heartBeat":4,"./middleware/activity/playerJoin":15,"./middleware/activity/playerAction":5,"./middleware/activity/playerQuit":6,"./middleware/activity/btnA":7,"./middleware/participant/transformControl":8,"./remoteCalls/activity":9,"./remoteCalls/participant":10,"eventify":13,"__browserify_process":14}],13:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 module.exports = require('./lib/eventify.js');
-},{"./lib/eventify.js":16}],16:[function(require,module,exports){
+},{"./lib/eventify.js":20}],18:[function(require,module,exports){
+var messageTypes = require('../utils/messageTypes');
+
+/**
+ * Don't call this module on its own. These functions
+ * are to be included by the concrete remoteCall modules.
+ */
+
+exports = module.exports = {
+
+  handshake: function (callback) {
+
+    var handshakeJSON = {
+      a: 'handshake',
+      d: {
+        protocolVersion: '1.0',
+        lib: 'nodejs'
+      }
+    };
+
+    this.rpcManager.makeRequest(handshakeJSON, callback);
+  },
+
+  successResponse: function (originalHeader) {
+
+    var msg = {
+      h: originalHeader,
+      s: true
+    };
+
+    if (originalHeader.t === messageTypes.MESSAGE_TYPE_REQUEST) {
+      msg.h.t = messageTypes.MESSAGE_TYPE_RESPONSE;
+    } else if (originalHeader.t === messageTypes.MESSAGE_TYPE_REQUEST_CORE) {
+      msg.h.t = messageTypes.MESSAGE_TYPE_RESPONSE_CORE;
+    }
+
+    this.socket.send(JSON.stringify(msg));
+  }
+
+};
+},{"../utils/messageTypes":19}],20:[function(require,module,exports){
 (function(){// Eventify
 // -----------------
 // Copyright(c) 2010-2012 Jeremy Ashkenas, DocumentCloud
@@ -3537,8 +3650,8 @@ module.exports = require('./lib/eventify.js');
 // Establish the root object, `window` in the browser, or `global` on the server.
 }(this));
 })()
-},{}],12:[function(require,module,exports){
-var request = require('browser-request');
+},{}],11:[function(require,module,exports){
+var reqwest = require('reqwest');
 
 var protocolVersion =  '1.0';
 var library = 'javascript browser';
@@ -3552,8 +3665,18 @@ var sendError = function(error){
     error: JSON.stringify(error)
   };
 
-  request({method:'POST', url:'http://localhost:3000/', json:errorJson}, function (error, response, body) {
+  /*
+    request({method:'POST', url:'http://localhost:3000/', json:errorJson}, function (error, response, body) {
       console.log(body);
+    });
+  */
+  reqwest({
+      url: 'http://localhost:3012/',
+      method: 'POST',
+      data: errorJson,
+      success: function (resp) {
+        console.log(resp);
+      }
   });
 };
 
@@ -3563,15 +3686,574 @@ var sendError = function(error){
 
 module.exports.sendError = sendError;
 
-},{"browser-request":17}],15:[function(require,module,exports){
+},{"reqwest":21}],21:[function(require,module,exports){
+(function(){/*!
+  * Reqwest! A general purpose XHR connection manager
+  * (c) Dustin Diaz 2013
+  * https://github.com/ded/reqwest
+  * license MIT
+  */
+!function (name, context, definition) {
+  if (typeof module != 'undefined' && module.exports) module.exports = definition()
+  else if (typeof define == 'function' && define.amd) define(definition)
+  else context[name] = definition()
+}('reqwest', this, function () {
+
+  var win = window
+    , doc = document
+    , twoHundo = /^20\d$/
+    , byTag = 'getElementsByTagName'
+    , readyState = 'readyState'
+    , contentType = 'Content-Type'
+    , requestedWith = 'X-Requested-With'
+    , head = doc[byTag]('head')[0]
+    , uniqid = 0
+    , callbackPrefix = 'reqwest_' + (+new Date())
+    , lastValue // data stored by the most recent JSONP callback
+    , xmlHttpRequest = 'XMLHttpRequest'
+    , noop = function () {}
+
+    , isArray = typeof Array.isArray == 'function'
+        ? Array.isArray
+        : function (a) {
+            return a instanceof Array
+          }
+
+    , defaultHeaders = {
+          contentType: 'application/x-www-form-urlencoded'
+        , requestedWith: xmlHttpRequest
+        , accept: {
+              '*':  'text/javascript, text/html, application/xml, text/xml, */*'
+            , xml:  'application/xml, text/xml'
+            , html: 'text/html'
+            , text: 'text/plain'
+            , json: 'application/json, text/javascript'
+            , js:   'application/javascript, text/javascript'
+          }
+      }
+
+    , xhr = win[xmlHttpRequest]
+        ? function () {
+            return new XMLHttpRequest()
+          }
+        : function () {
+            return new ActiveXObject('Microsoft.XMLHTTP')
+          }
+    , globalSetupOptions = {
+        dataFilter: function (data) {
+          return data
+        }
+      }
+
+  function handleReadyState(r, success, error) {
+    return function () {
+      // use _aborted to mitigate against IE err c00c023f
+      // (can't read props on aborted request objects)
+      if (r._aborted) return error(r.request)
+      if (r.request && r.request[readyState] == 4) {
+        r.request.onreadystatechange = noop
+        if (twoHundo.test(r.request.status))
+          success(r.request)
+        else
+          error(r.request)
+      }
+    }
+  }
+
+  function setHeaders(http, o) {
+    var headers = o.headers || {}
+      , h
+
+    headers.Accept = headers.Accept
+      || defaultHeaders.accept[o.type]
+      || defaultHeaders.accept['*']
+
+    // breaks cross-origin requests with legacy browsers
+    if (!o.crossOrigin && !headers[requestedWith]) headers[requestedWith] = defaultHeaders.requestedWith
+    if (!headers[contentType]) headers[contentType] = o.contentType || defaultHeaders.contentType
+    for (h in headers)
+      headers.hasOwnProperty(h) && http.setRequestHeader(h, headers[h])
+  }
+
+  function setCredentials(http, o) {
+    if (typeof o.withCredentials !== 'undefined' && typeof http.withCredentials !== 'undefined') {
+      http.withCredentials = !!o.withCredentials
+    }
+  }
+
+  function generalCallback(data) {
+    lastValue = data
+  }
+
+  function urlappend (url, s) {
+    return url + (/\?/.test(url) ? '&' : '?') + s
+  }
+
+  function handleJsonp(o, fn, err, url) {
+    var reqId = uniqid++
+      , cbkey = o.jsonpCallback || 'callback' // the 'callback' key
+      , cbval = o.jsonpCallbackName || reqwest.getcallbackPrefix(reqId)
+      // , cbval = o.jsonpCallbackName || ('reqwest_' + reqId) // the 'callback' value
+      , cbreg = new RegExp('((^|\\?|&)' + cbkey + ')=([^&]+)')
+      , match = url.match(cbreg)
+      , script = doc.createElement('script')
+      , loaded = 0
+      , isIE10 = navigator.userAgent.indexOf('MSIE 10.0') !== -1
+
+    if (match) {
+      if (match[3] === '?') {
+        url = url.replace(cbreg, '$1=' + cbval) // wildcard callback func name
+      } else {
+        cbval = match[3] // provided callback func name
+      }
+    } else {
+      url = urlappend(url, cbkey + '=' + cbval) // no callback details, add 'em
+    }
+
+    win[cbval] = generalCallback
+
+    script.type = 'text/javascript'
+    script.src = url
+    script.async = true
+    if (typeof script.onreadystatechange !== 'undefined' && !isIE10) {
+      // need this for IE due to out-of-order onreadystatechange(), binding script
+      // execution to an event listener gives us control over when the script
+      // is executed. See http://jaubourg.net/2010/07/loading-script-as-onclick-handler-of.html
+      //
+      // if this hack is used in IE10 jsonp callback are never called
+      script.event = 'onclick'
+      script.htmlFor = script.id = '_reqwest_' + reqId
+    }
+
+    script.onload = script.onreadystatechange = function () {
+      if ((script[readyState] && script[readyState] !== 'complete' && script[readyState] !== 'loaded') || loaded) {
+        return false
+      }
+      script.onload = script.onreadystatechange = null
+      script.onclick && script.onclick()
+      // Call the user callback with the last value stored and clean up values and scripts.
+      fn(lastValue)
+      lastValue = undefined
+      head.removeChild(script)
+      loaded = 1
+    }
+
+    // Add the script to the DOM head
+    head.appendChild(script)
+
+    // Enable JSONP timeout
+    return {
+      abort: function () {
+        script.onload = script.onreadystatechange = null
+        err({}, 'Request is aborted: timeout', {})
+        lastValue = undefined
+        head.removeChild(script)
+        loaded = 1
+      }
+    }
+  }
+
+  function getRequest(fn, err) {
+    var o = this.o
+      , method = (o.method || 'GET').toUpperCase()
+      , url = typeof o === 'string' ? o : o.url
+      // convert non-string objects to query-string form unless o.processData is false
+      , data = (o.processData !== false && o.data && typeof o.data !== 'string')
+        ? reqwest.toQueryString(o.data)
+        : (o.data || null)
+      , http
+
+    // if we're working on a GET request and we have data then we should append
+    // query string to end of URL and not post data
+    if ((o.type == 'jsonp' || method == 'GET') && data) {
+      url = urlappend(url, data)
+      data = null
+    }
+
+    if (o.type == 'jsonp') return handleJsonp(o, fn, err, url)
+
+    http = xhr()
+    http.open(method, url, o.async === false ? false : true)
+    setHeaders(http, o)
+    setCredentials(http, o)
+    http.onreadystatechange = handleReadyState(this, fn, err)
+    o.before && o.before(http)
+    http.send(data)
+    return http
+  }
+
+  function Reqwest(o, fn) {
+    this.o = o
+    this.fn = fn
+
+    init.apply(this, arguments)
+  }
+
+  function setType(url) {
+    var m = url.match(/\.(json|jsonp|html|xml)(\?|$)/)
+    return m ? m[1] : 'js'
+  }
+
+  function init(o, fn) {
+
+    this.url = typeof o == 'string' ? o : o.url
+    this.timeout = null
+
+    // whether request has been fulfilled for purpose
+    // of tracking the Promises
+    this._fulfilled = false
+    // success handlers
+    this._fulfillmentHandlers = []
+    // error handlers
+    this._errorHandlers = []
+    // complete (both success and fail) handlers
+    this._completeHandlers = []
+    this._erred = false
+    this._responseArgs = {}
+
+    var self = this
+      , type = o.type || setType(this.url)
+
+    fn = fn || function () {}
+
+    if (o.timeout) {
+      this.timeout = setTimeout(function () {
+        self.abort()
+      }, o.timeout)
+    }
+
+    if (o.success) {
+      this._fulfillmentHandlers.push(function () {
+        o.success.apply(o, arguments)
+      })
+    }
+
+    if (o.error) {
+      this._errorHandlers.push(function () {
+        o.error.apply(o, arguments)
+      })
+    }
+
+    if (o.complete) {
+      this._completeHandlers.push(function () {
+        o.complete.apply(o, arguments)
+      })
+    }
+
+    function complete (resp) {
+      o.timeout && clearTimeout(self.timeout)
+      self.timeout = null
+      while (self._completeHandlers.length > 0) {
+        self._completeHandlers.shift()(resp)
+      }
+    }
+
+    function success (resp) {
+      // use global data filter on response text
+      var filteredResponse = globalSetupOptions.dataFilter(resp.responseText, type)
+        , r = resp.responseText = filteredResponse
+      if (r) {
+        switch (type) {
+        case 'json':
+          try {
+            resp = win.JSON ? win.JSON.parse(r) : eval('(' + r + ')')
+          } catch (err) {
+            return error(resp, 'Could not parse JSON in response', err)
+          }
+          break
+        case 'js':
+          resp = eval(r)
+          break
+        case 'html':
+          resp = r
+          break
+        case 'xml':
+          resp = resp.responseXML
+              && resp.responseXML.parseError // IE trololo
+              && resp.responseXML.parseError.errorCode
+              && resp.responseXML.parseError.reason
+            ? null
+            : resp.responseXML
+          break
+        }
+      }
+
+      self._responseArgs.resp = resp
+      self._fulfilled = true
+      fn(resp)
+      while (self._fulfillmentHandlers.length > 0) {
+        self._fulfillmentHandlers.shift()(resp)
+      }
+
+      complete(resp)
+    }
+
+    function error(resp, msg, t) {
+      self._responseArgs.resp = resp
+      self._responseArgs.msg = msg
+      self._responseArgs.t = t
+      self._erred = true
+      while (self._errorHandlers.length > 0) {
+        self._errorHandlers.shift()(resp, msg, t)
+      }
+      complete(resp)
+    }
+
+    this.request = getRequest.call(this, success, error)
+  }
+
+  Reqwest.prototype = {
+    abort: function () {
+      this._aborted = true
+      this.request.abort()
+    }
+
+  , retry: function () {
+      init.call(this, this.o, this.fn)
+    }
+
+    /**
+     * Small deviation from the Promises A CommonJs specification
+     * http://wiki.commonjs.org/wiki/Promises/A
+     */
+
+    /**
+     * `then` will execute upon successful requests
+     */
+  , then: function (success, fail) {
+      success = success || function () {}
+      fail = fail || function () {}
+      if (this._fulfilled) {
+        success(this._responseArgs.resp)
+      } else if (this._erred) {
+        fail(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t)
+      } else {
+        this._fulfillmentHandlers.push(success)
+        this._errorHandlers.push(fail)
+      }
+      return this
+    }
+
+    /**
+     * `always` will execute whether the request succeeds or fails
+     */
+  , always: function (fn) {
+      if (this._fulfilled || this._erred) {
+        fn(this._responseArgs.resp)
+      } else {
+        this._completeHandlers.push(fn)
+      }
+      return this
+    }
+
+    /**
+     * `fail` will execute when the request fails
+     */
+  , fail: function (fn) {
+      if (this._erred) {
+        fn(this._responseArgs.resp, this._responseArgs.msg, this._responseArgs.t)
+      } else {
+        this._errorHandlers.push(fn)
+      }
+      return this
+    }
+  }
+
+  function reqwest(o, fn) {
+    return new Reqwest(o, fn)
+  }
+
+  // normalize newline variants according to spec -> CRLF
+  function normalize(s) {
+    return s ? s.replace(/\r?\n/g, '\r\n') : ''
+  }
+
+  function serial(el, cb) {
+    var n = el.name
+      , t = el.tagName.toLowerCase()
+      , optCb = function (o) {
+          // IE gives value="" even where there is no value attribute
+          // 'specified' ref: http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-862529273
+          if (o && !o.disabled)
+            cb(n, normalize(o.attributes.value && o.attributes.value.specified ? o.value : o.text))
+        }
+      , ch, ra, val, i
+
+    // don't serialize elements that are disabled or without a name
+    if (el.disabled || !n) return
+
+    switch (t) {
+    case 'input':
+      if (!/reset|button|image|file/i.test(el.type)) {
+        ch = /checkbox/i.test(el.type)
+        ra = /radio/i.test(el.type)
+        val = el.value
+        // WebKit gives us "" instead of "on" if a checkbox has no value, so correct it here
+        ;(!(ch || ra) || el.checked) && cb(n, normalize(ch && val === '' ? 'on' : val))
+      }
+      break
+    case 'textarea':
+      cb(n, normalize(el.value))
+      break
+    case 'select':
+      if (el.type.toLowerCase() === 'select-one') {
+        optCb(el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null)
+      } else {
+        for (i = 0; el.length && i < el.length; i++) {
+          el.options[i].selected && optCb(el.options[i])
+        }
+      }
+      break
+    }
+  }
+
+  // collect up all form elements found from the passed argument elements all
+  // the way down to child elements; pass a '<form>' or form fields.
+  // called with 'this'=callback to use for serial() on each element
+  function eachFormElement() {
+    var cb = this
+      , e, i
+      , serializeSubtags = function (e, tags) {
+          var i, j, fa
+          for (i = 0; i < tags.length; i++) {
+            fa = e[byTag](tags[i])
+            for (j = 0; j < fa.length; j++) serial(fa[j], cb)
+          }
+        }
+
+    for (i = 0; i < arguments.length; i++) {
+      e = arguments[i]
+      if (/input|select|textarea/i.test(e.tagName)) serial(e, cb)
+      serializeSubtags(e, [ 'input', 'select', 'textarea' ])
+    }
+  }
+
+  // standard query string style serialization
+  function serializeQueryString() {
+    return reqwest.toQueryString(reqwest.serializeArray.apply(null, arguments))
+  }
+
+  // { 'name': 'value', ... } style serialization
+  function serializeHash() {
+    var hash = {}
+    eachFormElement.apply(function (name, value) {
+      if (name in hash) {
+        hash[name] && !isArray(hash[name]) && (hash[name] = [hash[name]])
+        hash[name].push(value)
+      } else hash[name] = value
+    }, arguments)
+    return hash
+  }
+
+  // [ { name: 'name', value: 'value' }, ... ] style serialization
+  reqwest.serializeArray = function () {
+    var arr = []
+    eachFormElement.apply(function (name, value) {
+      arr.push({name: name, value: value})
+    }, arguments)
+    return arr
+  }
+
+  reqwest.serialize = function () {
+    if (arguments.length === 0) return ''
+    var opt, fn
+      , args = Array.prototype.slice.call(arguments, 0)
+
+    opt = args.pop()
+    opt && opt.nodeType && args.push(opt) && (opt = null)
+    opt && (opt = opt.type)
+
+    if (opt == 'map') fn = serializeHash
+    else if (opt == 'array') fn = reqwest.serializeArray
+    else fn = serializeQueryString
+
+    return fn.apply(null, args)
+  }
+
+  reqwest.toQueryString = function (o, trad) {
+    var prefix, i
+      , traditional = trad || false
+      , s = []
+      , enc = encodeURIComponent
+      , add = function (key, value) {
+          // If value is a function, invoke it and return its value
+          value = ('function' === typeof value) ? value() : (value == null ? '' : value)
+          s[s.length] = enc(key) + '=' + enc(value)
+        }
+    // If an array was passed in, assume that it is an array of form elements.
+    if (isArray(o)) {
+      for (i = 0; o && i < o.length; i++) add(o[i].name, o[i].value)
+    } else {
+      // If traditional, encode the "old" way (the way 1.3.2 or older
+      // did it), otherwise encode params recursively.
+      for (prefix in o) {
+        buildParams(prefix, o[prefix], traditional, add)
+      }
+    }
+
+    // spaces should be + according to spec
+    return s.join('&').replace(/%20/g, '+')
+  }
+
+  function buildParams(prefix, obj, traditional, add) {
+    var name, i, v
+      , rbracket = /\[\]$/
+
+    if (isArray(obj)) {
+      // Serialize array item.
+      for (i = 0; obj && i < obj.length; i++) {
+        v = obj[i]
+        if (traditional || rbracket.test(prefix)) {
+          // Treat each array item as a scalar.
+          add(prefix, v)
+        } else {
+          buildParams(prefix + '[' + (typeof v === 'object' ? i : '') + ']', v, traditional, add)
+        }
+      }
+    } else if (obj.toString() === '[object Object]') {
+      // Serialize object item.
+      for (name in obj) {
+        buildParams(prefix + '[' + name + ']', obj[name], traditional, add)
+      }
+
+    } else {
+      // Serialize scalar item.
+      add(prefix, obj)
+    }
+  }
+
+  reqwest.getcallbackPrefix = function () {
+    return callbackPrefix
+  }
+
+  // jQuery and Zepto compatibility, differences can be remapped here so you can call
+  // .ajax.compat(options, callback)
+  reqwest.compat = function (o, fn) {
+    if (o) {
+      o.type && (o.method = o.type) && delete o.type
+      o.dataType && (o.type = o.dataType)
+      o.jsonpCallback && (o.jsonpCallbackName = o.jsonpCallback) && delete o.jsonpCallback
+      o.jsonp && (o.jsonpCallback = o.jsonp)
+    }
+    return new Reqwest(o, fn)
+  }
+
+  reqwest.ajaxSetup = function (options) {
+    options = options || {}
+    for (var k in options) {
+      globalSetupOptions[k] = options[k]
+    }
+  }
+
+  return reqwest
+});
+
+})()
+},{}],14:[function(require,module,exports){
 var Eventify = require('eventify');
 
 //Protocol message codes
-var MESSAGE_TYPE_REQUEST = 1;
-var MESSAGE_TYPE_RESPONSE = 2;
-var MESSAGE_TYPE_REQUEST_CORE = 3;
-var MESSAGE_TYPE_RESPONSE_CORE = 4;
-var MESSAGE_TYPE_SIGNAL = 5;
+var messageTypes = require('../../utils/messageTypes');
 
 
 var notReadyParticipants = {};
@@ -3581,7 +4263,7 @@ var notReadyParticipants = {};
 function playerJoin(muzzData, next){
   var _this = this;
   // if is a ready signal of the 'participantJoin'
-  if (muzzData.h.t  === MESSAGE_TYPE_REQUEST && muzzData.a ==='signal' && muzzData.d.a === 'ready'){
+  if (muzzData.h.t  === messageTypes.MESSAGE_TYPE_REQUEST && muzzData.a ==='signal' && muzzData.d.a === 'ready'){
     // Find the participant object to trigger the event of 'participantJoin'
     // check the pid with our participant
     if (notReadyParticipants[muzzData.h.pid]){
@@ -3596,7 +4278,7 @@ function playerJoin(muzzData, next){
     }
 
   // else if is a participant join 
-  }else if (muzzData.h.t  === MESSAGE_TYPE_REQUEST_CORE && muzzData.a ==='participantJoined'){
+  }else if (muzzData.h.t  === messageTypes.MESSAGE_TYPE_REQUEST_CORE && muzzData.a ==='participantJoined'){
     //Create a new partcipant object
     var participant  = {
       id: muzzData.d.participant.id,
@@ -3627,971 +4309,5 @@ function playerJoin(muzzData, next){
 }
 
 module.exports = playerJoin;
-},{"eventify":13}],17:[function(require,module,exports){
-(function(){// Browser Request
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-var xmlhttprequest = require('./xmlhttprequest')
-if(!xmlhttprequest || typeof xmlhttprequest !== 'object')
-  throw new Error('Could not find ./xmlhttprequest')
-
-var XHR = xmlhttprequest.XMLHttpRequest
-if(!XHR)
-  throw new Error('Bad xmlhttprequest.XMLHttpRequest')
-if(! ('_object' in (new XHR)))
-  throw new Error('This is not portable XMLHttpRequest')
-
-module.exports = request
-request.XMLHttpRequest = XHR
-request.log = getLogger()
-
-var DEFAULT_TIMEOUT = 3 * 60 * 1000 // 3 minutes
-
-//
-// request
-//
-
-function request(options, callback) {
-  // The entry-point to the API: prep the options object and pass the real work to run_xhr.
-  if(typeof callback !== 'function')
-    throw new Error('Bad callback given: ' + callback)
-
-  if(!options)
-    throw new Error('No options given')
-
-  var options_onResponse = options.onResponse; // Save this for later.
-
-  if(typeof options === 'string')
-    options = {'uri':options};
-  else
-    options = JSON.parse(JSON.stringify(options)); // Use a duplicate for mutating.
-
-  options.onResponse = options_onResponse // And put it back.
-
-  if(options.url) {
-    options.uri = options.url;
-    delete options.url;
-  }
-
-  if(!options.uri && options.uri !== "")
-    throw new Error("options.uri is a required argument");
-
-  if(typeof options.uri != "string")
-    throw new Error("options.uri must be a string");
-
-  var unsupported_options = ['proxy', '_redirectsFollowed', 'maxRedirects', 'followRedirect']
-  for (var i = 0; i < unsupported_options.length; i++)
-    if(options[ unsupported_options[i] ])
-      throw new Error("options." + unsupported_options[i] + " is not supported")
-
-  options.callback = callback
-  options.method = options.method || 'GET';
-  options.headers = options.headers || {};
-  options.body    = options.body || null
-  options.timeout = options.timeout || request.DEFAULT_TIMEOUT
-
-  if(options.headers.host)
-    throw new Error("Options.headers.host is not supported");
-
-  if(options.json) {
-    options.headers.accept = options.headers.accept || 'application/json'
-    if(options.method !== 'GET')
-      options.headers['content-type'] = 'application/json'
-
-    if(typeof options.json !== 'boolean')
-      options.body = JSON.stringify(options.json)
-    else if(typeof options.body !== 'string')
-      options.body = JSON.stringify(options.body)
-  }
-
-  // If onResponse is boolean true, call back immediately when the response is known,
-  // not when the full request is complete.
-  options.onResponse = options.onResponse || noop
-  if(options.onResponse === true) {
-    options.onResponse = callback
-    options.callback = noop
-  }
-
-  // XXX Browsers do not like this.
-  //if(options.body)
-  //  options.headers['content-length'] = options.body.length;
-
-  // HTTP basic authentication
-  if(!options.headers.authorization && options.auth)
-    options.headers.authorization = 'Basic ' + b64_enc(options.auth.username + ':' + options.auth.password);
-
-  return run_xhr(options)
-}
-
-var req_seq = 0
-function run_xhr(options) {
-  var xhr = new XHR
-    , timed_out = false
-    , is_cors = is_crossDomain(options.uri)
-    , supports_cors = ('withCredentials' in xhr._object)
-
-  req_seq += 1
-  xhr.seq_id = req_seq
-  xhr.id = req_seq + ': ' + options.method + ' ' + options.uri
-  xhr._id = xhr.id // I know I will type "_id" from habit all the time.
-
-  if(is_cors && !supports_cors) {
-    var cors_err = new Error('Browser does not support cross-origin request: ' + options.uri)
-    cors_err.cors = 'unsupported'
-    return options.callback(cors_err, xhr)
-  }
-
-  xhr.timeoutTimer = setTimeout(too_late, options.timeout)
-  function too_late() {
-    timed_out = true
-    var er = new Error('ETIMEDOUT')
-    er.code = 'ETIMEDOUT'
-    er.duration = options.timeout
-
-    request.log.error('Timeout', { 'id':xhr._id, 'milliseconds':options.timeout })
-    return options.callback(er, xhr)
-  }
-
-  // Some states can be skipped over, so remember what is still incomplete.
-  var did = {'response':false, 'loading':false, 'end':false}
-
-  xhr.onreadystatechange = on_state_change
-  xhr.open(options.method, options.uri, true) // asynchronous
-  if(is_cors)
-    xhr._object.withCredentials = !! options.withCredentials
-  xhr.send(options.body)
-  return xhr
-
-  function on_state_change(event) {
-    if(timed_out)
-      return request.log.debug('Ignoring timed out state change', {'state':xhr.readyState, 'id':xhr.id})
-
-    request.log.debug('State change', {'state':xhr.readyState, 'id':xhr.id, 'timed_out':timed_out})
-
-    if(xhr.readyState === XHR.OPENED) {
-      request.log.debug('Request started', {'id':xhr.id})
-      for (var key in options.headers)
-        xhr.setRequestHeader(key, options.headers[key])
-    }
-
-    else if(xhr.readyState === XHR.HEADERS_RECEIVED)
-      on_response()
-
-    else if(xhr.readyState === XHR.LOADING) {
-      on_response()
-      on_loading()
-    }
-
-    else if(xhr.readyState === XHR.DONE) {
-      on_response()
-      on_loading()
-      on_end()
-    }
-  }
-
-  function on_response() {
-    if(did.response)
-      return
-
-    did.response = true
-    request.log.debug('Got response', {'id':xhr.id, 'status':xhr.status})
-    clearTimeout(xhr.timeoutTimer)
-    xhr.statusCode = xhr.status // Node request compatibility
-
-    // Detect failed CORS requests.
-    if(is_cors && xhr.statusCode == 0) {
-      var cors_err = new Error('CORS request rejected: ' + options.uri)
-      cors_err.cors = 'rejected'
-
-      // Do not process this request further.
-      did.loading = true
-      did.end = true
-
-      return options.callback(cors_err, xhr)
-    }
-
-    options.onResponse(null, xhr)
-  }
-
-  function on_loading() {
-    if(did.loading)
-      return
-
-    did.loading = true
-    request.log.debug('Response body loading', {'id':xhr.id})
-    // TODO: Maybe simulate "data" events by watching xhr.responseText
-  }
-
-  function on_end() {
-    if(did.end)
-      return
-
-    did.end = true
-    request.log.debug('Request done', {'id':xhr.id})
-
-    xhr.body = xhr.responseText
-    if(options.json) {
-      try        { xhr.body = JSON.parse(xhr.responseText) }
-      catch (er) { return options.callback(er, xhr)        }
-    }
-
-    options.callback(null, xhr, xhr.body)
-  }
-
-} // request
-
-request.withCredentials = false;
-request.DEFAULT_TIMEOUT = DEFAULT_TIMEOUT;
-
-//
-// HTTP method shortcuts
-//
-
-var shortcuts = [ 'get', 'put', 'post', 'head' ];
-shortcuts.forEach(function(shortcut) {
-  var method = shortcut.toUpperCase();
-  var func   = shortcut.toLowerCase();
-
-  request[func] = function(opts) {
-    if(typeof opts === 'string')
-      opts = {'method':method, 'uri':opts};
-    else {
-      opts = JSON.parse(JSON.stringify(opts));
-      opts.method = method;
-    }
-
-    var args = [opts].concat(Array.prototype.slice.apply(arguments, [1]));
-    return request.apply(this, args);
-  }
-})
-
-//
-// CouchDB shortcut
-//
-
-request.couch = function(options, callback) {
-  if(typeof options === 'string')
-    options = {'uri':options}
-
-  // Just use the request API to do JSON.
-  options.json = true
-  if(options.body)
-    options.json = options.body
-  delete options.body
-
-  callback = callback || noop
-
-  var xhr = request(options, couch_handler)
-  return xhr
-
-  function couch_handler(er, resp, body) {
-    if(er)
-      return callback(er, resp, body)
-
-    if((resp.statusCode < 200 || resp.statusCode > 299) && body.error) {
-      // The body is a Couch JSON object indicating the error.
-      er = new Error('CouchDB error: ' + (body.error.reason || body.error.error))
-      for (var key in body)
-        er[key] = body[key]
-      return callback(er, resp, body);
-    }
-
-    return callback(er, resp, body);
-  }
-}
-
-//
-// Utility
-//
-
-function noop() {}
-
-function getLogger() {
-  var logger = {}
-    , levels = ['trace', 'debug', 'info', 'warn', 'error']
-    , level, i
-
-  for(i = 0; i < levels.length; i++) {
-    level = levels[i]
-
-    logger[level] = noop
-    if(typeof console !== 'undefined' && console && console[level])
-      logger[level] = formatted(console, level)
-  }
-
-  return logger
-}
-
-function formatted(obj, method) {
-  return formatted_logger
-
-  function formatted_logger(str, context) {
-    if(typeof context === 'object')
-      str += ' ' + JSON.stringify(context)
-
-    return obj[method].call(obj, str)
-  }
-}
-
-// Return whether a URL is a cross-domain request.
-function is_crossDomain(url) {
-  var rurl = /^([\w\+\.\-]+:)(?:\/\/([^\/?#:]*)(?::(\d+))?)?/
-
-  // jQuery #8138, IE may throw an exception when accessing
-  // a field from window.location if document.domain has been set
-  var ajaxLocation
-  try { ajaxLocation = location.href }
-  catch (e) {
-    // Use the href attribute of an A element since IE will modify it given document.location
-    ajaxLocation = document.createElement( "a" );
-    ajaxLocation.href = "";
-    ajaxLocation = ajaxLocation.href;
-  }
-
-  var ajaxLocParts = rurl.exec(ajaxLocation.toLowerCase()) || []
-    , parts = rurl.exec(url.toLowerCase() )
-
-  var result = !!(
-    parts &&
-    (  parts[1] != ajaxLocParts[1]
-    || parts[2] != ajaxLocParts[2]
-    || (parts[3] || (parts[1] === "http:" ? 80 : 443)) != (ajaxLocParts[3] || (ajaxLocParts[1] === "http:" ? 80 : 443))
-    )
-  )
-
-  //console.debug('is_crossDomain('+url+') -> ' + result)
-  return result
-}
-
-// MIT License from http://phpjs.org/functions/base64_encode:358
-function b64_enc (data) {
-    // Encodes string using MIME base64 algorithm
-    var b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-    var o1, o2, o3, h1, h2, h3, h4, bits, i = 0, ac = 0, enc="", tmp_arr = [];
-
-    if (!data) {
-        return data;
-    }
-
-    // assume utf8 data
-    // data = this.utf8_encode(data+'');
-
-    do { // pack three octets into four hexets
-        o1 = data.charCodeAt(i++);
-        o2 = data.charCodeAt(i++);
-        o3 = data.charCodeAt(i++);
-
-        bits = o1<<16 | o2<<8 | o3;
-
-        h1 = bits>>18 & 0x3f;
-        h2 = bits>>12 & 0x3f;
-        h3 = bits>>6 & 0x3f;
-        h4 = bits & 0x3f;
-
-        // use hexets to index into b64, and append result to encoded string
-        tmp_arr[ac++] = b64.charAt(h1) + b64.charAt(h2) + b64.charAt(h3) + b64.charAt(h4);
-    } while (i < data.length);
-
-    enc = tmp_arr.join('');
-
-    switch (data.length % 3) {
-        case 1:
-            enc = enc.slice(0, -2) + '==';
-        break;
-        case 2:
-            enc = enc.slice(0, -1) + '=';
-        break;
-    }
-
-    return enc;
-}
-
-})()
-},{"./xmlhttprequest":18}],18:[function(require,module,exports){
-(function(){
-
-!function(window) {
-  if(typeof exports === 'undefined')
-    throw new Error('Cannot find global "exports" object. Is this really CommonJS?')
-  if(typeof module === 'undefined')
-    throw new Error('Cannot find global "module" object. Is this really CommonJS?')
-  if(!module.exports)
-    throw new Error('Cannot find global "module.exports" object. Is this really CommonJS?')
-
-  // Define globals to simulate a browser environment.
-  window = window || {}
-
-  var document = window.document || {}
-  if(!window.document)
-    window.document = document
-
-  var navigator = window.navigator || {}
-  if(!window.navigator)
-    window.navigator = navigator
-
-  if(!navigator.userAgent)
-    navigator.userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_2) AppleWebKit/534.51.22 (KHTML, like Gecko) Version/5.1.1 Safari/534.51.22';
-
-  // Remember the old values in window. If the inner code changes anything, export that as a module and restore the old window value.
-  var win = {}
-    , key
-
-  for (key in window)
-    if(window.hasOwnProperty(key))
-      win[key] = window[key]
-
-  run_code()
-
-  for (key in window)
-    if(window.hasOwnProperty(key))
-      if(window[key] !== win[key]) {
-        exports[key] = window[key]
-        window[key] = win[key]
-      }
-
-  function run_code() {
-    // Begin browser file: XMLHttpRequest.js
-/**
-* XMLHttpRequest.js Copyright (C) 2011 Sergey Ilinsky (http://www.ilinsky.com)
-*
-* This work is free software; you can redistribute it and/or modify
-* it under the terms of the GNU Lesser General Public License as published by
-* the Free Software Foundation; either version 2.1 of the License, or
-* (at your option) any later version.
-*
-* This work is distributed in the hope that it will be useful,
-* but without any warranty; without even the implied warranty of
-* merchantability or fitness for a particular purpose. See the
-* GNU Lesser General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public License
-* along with this library; if not, write to the Free Software Foundation, Inc.,
-* 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-*/
-
-(function () {
-
-	// Save reference to earlier defined object implementation (if any)
-	var oXMLHttpRequest = window.XMLHttpRequest;
-
-	// Define on browser type
-	var bGecko  = !!window.controllers;
-	var bIE     = !!window.document.namespaces;
-	var bIE7    = bIE && window.navigator.userAgent.match(/MSIE 7.0/);
-
-	// Enables "XMLHttpRequest()" call next to "new XMLHttpRequest()"
-	function fXMLHttpRequest() {
-		this._object  = oXMLHttpRequest && !bIE7 ? new oXMLHttpRequest : new window.ActiveXObject("Microsoft.XMLHTTP");
-		this._listeners = [];
-	}
-
-	// Constructor
-	function cXMLHttpRequest() {
-		return new fXMLHttpRequest;
-	}
-	cXMLHttpRequest.prototype = fXMLHttpRequest.prototype;
-
-	// BUGFIX: Firefox with Firebug installed would break pages if not executed
-	if (bGecko && oXMLHttpRequest.wrapped) {
-		cXMLHttpRequest.wrapped = oXMLHttpRequest.wrapped;
-	}
-
-	// Constants
-	cXMLHttpRequest.UNSENT            = 0;
-	cXMLHttpRequest.OPENED            = 1;
-	cXMLHttpRequest.HEADERS_RECEIVED  = 2;
-	cXMLHttpRequest.LOADING           = 3;
-	cXMLHttpRequest.DONE              = 4;
-
-	// Interface level constants
-	cXMLHttpRequest.prototype.UNSENT            = cXMLHttpRequest.UNSENT;
-	cXMLHttpRequest.prototype.OPENED            = cXMLHttpRequest.OPENED;
-	cXMLHttpRequest.prototype.HEADERS_RECEIVED  = cXMLHttpRequest.HEADERS_RECEIVED;
-	cXMLHttpRequest.prototype.LOADING           = cXMLHttpRequest.LOADING;
-	cXMLHttpRequest.prototype.DONE              = cXMLHttpRequest.DONE;
-
-	// Public Properties
-	cXMLHttpRequest.prototype.readyState    = cXMLHttpRequest.UNSENT;
-	cXMLHttpRequest.prototype.responseText  = '';
-	cXMLHttpRequest.prototype.responseXML   = null;
-	cXMLHttpRequest.prototype.status        = 0;
-	cXMLHttpRequest.prototype.statusText    = '';
-
-	// Priority proposal
-	cXMLHttpRequest.prototype.priority    = "NORMAL";
-
-	// Instance-level Events Handlers
-	cXMLHttpRequest.prototype.onreadystatechange  = null;
-
-	// Class-level Events Handlers
-	cXMLHttpRequest.onreadystatechange  = null;
-	cXMLHttpRequest.onopen              = null;
-	cXMLHttpRequest.onsend              = null;
-	cXMLHttpRequest.onabort             = null;
-
-	// Public Methods
-	cXMLHttpRequest.prototype.open  = function(sMethod, sUrl, bAsync, sUser, sPassword) {
-		// http://www.w3.org/TR/XMLHttpRequest/#the-open-method
-		var sLowerCaseMethod = sMethod.toLowerCase();
-		if (sLowerCaseMethod == "connect" || sLowerCaseMethod == "trace" || sLowerCaseMethod == "track") {
-			// Using a generic error and an int - not too sure all browsers support correctly
-			// http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html#securityerror, so, this is safer
-			// XXX should do better than that, but this is OT to XHR.
-			throw new Error(18);
-		}
-
-		// Delete headers, required when object is reused
-		delete this._headers;
-
-		// When bAsync parameter value is omitted, use true as default
-		if (arguments.length < 3) {
-			bAsync  = true;
-		}
-
-		// Save async parameter for fixing Gecko bug with missing readystatechange in synchronous requests
-		this._async   = bAsync;
-
-		// Set the onreadystatechange handler
-		var oRequest  = this;
-		var nState    = this.readyState;
-		var fOnUnload = null;
-
-		// BUGFIX: IE - memory leak on page unload (inter-page leak)
-		if (bIE && bAsync) {
-			fOnUnload = function() {
-				if (nState != cXMLHttpRequest.DONE) {
-					fCleanTransport(oRequest);
-					// Safe to abort here since onreadystatechange handler removed
-					oRequest.abort();
-				}
-			};
-			window.attachEvent("onunload", fOnUnload);
-		}
-
-		// Add method sniffer
-		if (cXMLHttpRequest.onopen) {
-			cXMLHttpRequest.onopen.apply(this, arguments);
-		}
-
-		if (arguments.length > 4) {
-			this._object.open(sMethod, sUrl, bAsync, sUser, sPassword);
-		} else if (arguments.length > 3) {
-			this._object.open(sMethod, sUrl, bAsync, sUser);
-		} else {
-			this._object.open(sMethod, sUrl, bAsync);
-		}
-
-		this.readyState = cXMLHttpRequest.OPENED;
-		fReadyStateChange(this);
-
-		this._object.onreadystatechange = function() {
-			if (bGecko && !bAsync) {
-				return;
-			}
-
-			// Synchronize state
-			oRequest.readyState   = oRequest._object.readyState;
-			fSynchronizeValues(oRequest);
-
-			// BUGFIX: Firefox fires unnecessary DONE when aborting
-			if (oRequest._aborted) {
-				// Reset readyState to UNSENT
-				oRequest.readyState = cXMLHttpRequest.UNSENT;
-
-				// Return now
-				return;
-			}
-
-			if (oRequest.readyState == cXMLHttpRequest.DONE) {
-				// Free up queue
-				delete oRequest._data;
-
-				// Uncomment these lines for bAsync
-				/**
-				 * if (bAsync) {
-				 * 	fQueue_remove(oRequest);
-				 * }
-				 */
-
-				fCleanTransport(oRequest);
-
-				// Uncomment this block if you need a fix for IE cache
-				/**
-				 * // BUGFIX: IE - cache issue
-				 * if (!oRequest._object.getResponseHeader("Date")) {
-				 * 	// Save object to cache
-				 * 	oRequest._cached  = oRequest._object;
-				 *
-				 * 	// Instantiate a new transport object
-				 * 	cXMLHttpRequest.call(oRequest);
-				 *
-				 * 	// Re-send request
-				 * 	if (sUser) {
-				 * 		if (sPassword) {
-				 * 			oRequest._object.open(sMethod, sUrl, bAsync, sUser, sPassword);
-				 * 		} else {
-				 * 			oRequest._object.open(sMethod, sUrl, bAsync);
-				 * 		}
-				 *
-				 * 		oRequest._object.setRequestHeader("If-Modified-Since", oRequest._cached.getResponseHeader("Last-Modified") || new window.Date(0));
-				 * 		// Copy headers set
-				 * 		if (oRequest._headers) {
-				 * 			for (var sHeader in oRequest._headers) {
-				 * 				// Some frameworks prototype objects with functions
-				 * 				if (typeof oRequest._headers[sHeader] == "string") {
-				 * 					oRequest._object.setRequestHeader(sHeader, oRequest._headers[sHeader]);
-				 * 				}
-				 * 			}
-				 * 		}
-				 * 		oRequest._object.onreadystatechange = function() {
-				 * 			// Synchronize state
-				 * 			oRequest.readyState   = oRequest._object.readyState;
-				 *
-				 * 			if (oRequest._aborted) {
-				 * 				//
-				 * 				oRequest.readyState = cXMLHttpRequest.UNSENT;
-				 *
-				 * 				// Return
-				 * 				return;
-				 * 			}
-				 *
-				 * 			if (oRequest.readyState == cXMLHttpRequest.DONE) {
-				 * 				// Clean Object
-				 * 				fCleanTransport(oRequest);
-				 *
-				 * 				// get cached request
-				 * 				if (oRequest.status == 304) {
-				 * 					oRequest._object  = oRequest._cached;
-				 * 				}
-				 *
-				 * 				//
-				 * 				delete oRequest._cached;
-				 *
-				 * 				//
-				 * 				fSynchronizeValues(oRequest);
-				 *
-				 * 				//
-				 * 				fReadyStateChange(oRequest);
-				 *
-				 * 				// BUGFIX: IE - memory leak in interrupted
-				 * 				if (bIE && bAsync) {
-				 * 					window.detachEvent("onunload", fOnUnload);
-				 * 				}
-				 *
-				 * 			}
-				 * 		};
-				 * 		oRequest._object.send(null);
-				 *
-				 * 		// Return now - wait until re-sent request is finished
-				 * 		return;
-				 * 	};
-				 */
-
-				// BUGFIX: IE - memory leak in interrupted
-				if (bIE && bAsync) {
-					window.detachEvent("onunload", fOnUnload);
-				}
-
-				// BUGFIX: Some browsers (Internet Explorer, Gecko) fire OPEN readystate twice
-				if (nState != oRequest.readyState) {
-					fReadyStateChange(oRequest);
-				}
-
-				nState  = oRequest.readyState;
-			}
-		};
-	};
-
-	cXMLHttpRequest.prototype.send = function(vData) {
-		// Add method sniffer
-		if (cXMLHttpRequest.onsend) {
-			cXMLHttpRequest.onsend.apply(this, arguments);
-		}
-
-		if (!arguments.length) {
-			vData = null;
-		}
-
-		// BUGFIX: Safari - fails sending documents created/modified dynamically, so an explicit serialization required
-		// BUGFIX: IE - rewrites any custom mime-type to "text/xml" in case an XMLNode is sent
-		// BUGFIX: Gecko - fails sending Element (this is up to the implementation either to standard)
-		if (vData && vData.nodeType) {
-			vData = window.XMLSerializer ? new window.XMLSerializer().serializeToString(vData) : vData.xml;
-			if (!this._headers["Content-Type"]) {
-				this._object.setRequestHeader("Content-Type", "application/xml");
-			}
-		}
-
-		this._data = vData;
-
-		/**
-		 * // Add to queue
-		 * if (this._async) {
-		 * 	fQueue_add(this);
-		 * } else { */
-		fXMLHttpRequest_send(this);
-		 /**
-		 * }
-		 */
-	};
-
-	cXMLHttpRequest.prototype.abort = function() {
-		// Add method sniffer
-		if (cXMLHttpRequest.onabort) {
-			cXMLHttpRequest.onabort.apply(this, arguments);
-		}
-
-		// BUGFIX: Gecko - unnecessary DONE when aborting
-		if (this.readyState > cXMLHttpRequest.UNSENT) {
-			this._aborted = true;
-		}
-
-		this._object.abort();
-
-		// BUGFIX: IE - memory leak
-		fCleanTransport(this);
-
-		this.readyState = cXMLHttpRequest.UNSENT;
-
-		delete this._data;
-
-		/* if (this._async) {
-	 	* 	fQueue_remove(this);
-	 	* }
-	 	*/
-	};
-
-	cXMLHttpRequest.prototype.getAllResponseHeaders = function() {
-		return this._object.getAllResponseHeaders();
-	};
-
-	cXMLHttpRequest.prototype.getResponseHeader = function(sName) {
-		return this._object.getResponseHeader(sName);
-	};
-
-	cXMLHttpRequest.prototype.setRequestHeader  = function(sName, sValue) {
-		// BUGFIX: IE - cache issue
-		if (!this._headers) {
-			this._headers = {};
-		}
-
-		this._headers[sName]  = sValue;
-
-		return this._object.setRequestHeader(sName, sValue);
-	};
-
-	// EventTarget interface implementation
-	cXMLHttpRequest.prototype.addEventListener  = function(sName, fHandler, bUseCapture) {
-		for (var nIndex = 0, oListener; oListener = this._listeners[nIndex]; nIndex++) {
-			if (oListener[0] == sName && oListener[1] == fHandler && oListener[2] == bUseCapture) {
-				return;
-			}
-		}
-
-		// Add listener
-		this._listeners.push([sName, fHandler, bUseCapture]);
-	};
-
-	cXMLHttpRequest.prototype.removeEventListener = function(sName, fHandler, bUseCapture) {
-		for (var nIndex = 0, oListener; oListener = this._listeners[nIndex]; nIndex++) {
-			if (oListener[0] == sName && oListener[1] == fHandler && oListener[2] == bUseCapture) {
-				break;
-			}
-		}
-
-		// Remove listener
-		if (oListener) {
-			this._listeners.splice(nIndex, 1);
-		}
-	};
-
-	cXMLHttpRequest.prototype.dispatchEvent = function(oEvent) {
-		var oEventPseudo  = {
-			'type':             oEvent.type,
-			'target':           this,
-			'currentTarget':    this,
-			'eventPhase':       2,
-			'bubbles':          oEvent.bubbles,
-			'cancelable':       oEvent.cancelable,
-			'timeStamp':        oEvent.timeStamp,
-			'stopPropagation':  function() {},  // There is no flow
-			'preventDefault':   function() {},  // There is no default action
-			'initEvent':        function() {}   // Original event object should be initialized
-		};
-
-		// Execute onreadystatechange
-		if (oEventPseudo.type == "readystatechange" && this.onreadystatechange) {
-			(this.onreadystatechange.handleEvent || this.onreadystatechange).apply(this, [oEventPseudo]);
-		}
-
-
-		// Execute listeners
-		for (var nIndex = 0, oListener; oListener = this._listeners[nIndex]; nIndex++) {
-			if (oListener[0] == oEventPseudo.type && !oListener[2]) {
-				(oListener[1].handleEvent || oListener[1]).apply(this, [oEventPseudo]);
-			}
-		}
-
-	};
-
-	//
-	cXMLHttpRequest.prototype.toString  = function() {
-		return '[' + "object" + ' ' + "XMLHttpRequest" + ']';
-	};
-
-	cXMLHttpRequest.toString  = function() {
-		return '[' + "XMLHttpRequest" + ']';
-	};
-
-	/**
-	 * // Queue manager
-	 * var oQueuePending = {"CRITICAL":[],"HIGH":[],"NORMAL":[],"LOW":[],"LOWEST":[]},
-	 * aQueueRunning = [];
-	 * function fQueue_add(oRequest) {
-	 * 	oQueuePending[oRequest.priority in oQueuePending ? oRequest.priority : "NORMAL"].push(oRequest);
-	 * 	//
-	 * 	setTimeout(fQueue_process);
-	 * };
-	 *
-	 * function fQueue_remove(oRequest) {
-	 * 	for (var nIndex = 0, bFound = false; nIndex < aQueueRunning.length; nIndex++)
-	 * 	if (bFound) {
-	 * 		aQueueRunning[nIndex - 1] = aQueueRunning[nIndex];
-	 * 	} else {
-	 * 		if (aQueueRunning[nIndex] == oRequest) {
-	 * 			bFound  = true;
-	 * 		}
-	 * }
-	 *
-	 * 	if (bFound) {
-	 * 		aQueueRunning.length--;
-	 * 	}
-	 *
-	 *
-	 * 	//
-	 * 	setTimeout(fQueue_process);
-	 * };
-	 *
-	 * function fQueue_process() {
-	 * if (aQueueRunning.length < 6) {
-	 * for (var sPriority in oQueuePending) {
-	 * if (oQueuePending[sPriority].length) {
-	 * var oRequest  = oQueuePending[sPriority][0];
-	 * oQueuePending[sPriority]  = oQueuePending[sPriority].slice(1);
-	 * //
-	 * aQueueRunning.push(oRequest);
-	 * // Send request
-	 * fXMLHttpRequest_send(oRequest);
-	 * break;
-	 * }
-	 * }
-	 * }
-	 * };
-	 */
-
-	// Helper function
-	function fXMLHttpRequest_send(oRequest) {
-		oRequest._object.send(oRequest._data);
-
-		// BUGFIX: Gecko - missing readystatechange calls in synchronous requests
-		if (bGecko && !oRequest._async) {
-			oRequest.readyState = cXMLHttpRequest.OPENED;
-
-			// Synchronize state
-			fSynchronizeValues(oRequest);
-
-			// Simulate missing states
-			while (oRequest.readyState < cXMLHttpRequest.DONE) {
-				oRequest.readyState++;
-				fReadyStateChange(oRequest);
-				// Check if we are aborted
-				if (oRequest._aborted) {
-					return;
-				}
-			}
-		}
-	}
-
-	function fReadyStateChange(oRequest) {
-		// Sniffing code
-		if (cXMLHttpRequest.onreadystatechange){
-			cXMLHttpRequest.onreadystatechange.apply(oRequest);
-		}
-
-
-		// Fake event
-		oRequest.dispatchEvent({
-			'type':       "readystatechange",
-			'bubbles':    false,
-			'cancelable': false,
-			'timeStamp':  new Date + 0
-		});
-	}
-
-	function fGetDocument(oRequest) {
-		var oDocument = oRequest.responseXML;
-		var sResponse = oRequest.responseText;
-		// Try parsing responseText
-		if (bIE && sResponse && oDocument && !oDocument.documentElement && oRequest.getResponseHeader("Content-Type").match(/[^\/]+\/[^\+]+\+xml/)) {
-			oDocument = new window.ActiveXObject("Microsoft.XMLDOM");
-			oDocument.async       = false;
-			oDocument.validateOnParse = false;
-			oDocument.loadXML(sResponse);
-		}
-
-		// Check if there is no error in document
-		if (oDocument){
-			if ((bIE && oDocument.parseError !== 0) || !oDocument.documentElement || (oDocument.documentElement && oDocument.documentElement.tagName == "parsererror")) {
-				return null;
-			}
-		}
-		return oDocument;
-	}
-
-	function fSynchronizeValues(oRequest) {
-		try { oRequest.responseText = oRequest._object.responseText;  } catch (e) {}
-		try { oRequest.responseXML  = fGetDocument(oRequest._object); } catch (e) {}
-		try { oRequest.status       = oRequest._object.status;        } catch (e) {}
-		try { oRequest.statusText   = oRequest._object.statusText;    } catch (e) {}
-	}
-
-	function fCleanTransport(oRequest) {
-		// BUGFIX: IE - memory leak (on-page leak)
-		oRequest._object.onreadystatechange = new window.Function;
-	}
-
-	// Internet Explorer 5.0 (missing apply)
-	if (!window.Function.prototype.apply) {
-		window.Function.prototype.apply = function(oRequest, oArguments) {
-			if (!oArguments) {
-				oArguments  = [];
-			}
-			oRequest.__func = this;
-			oRequest.__func(oArguments[0], oArguments[1], oArguments[2], oArguments[3], oArguments[4]);
-			delete oRequest.__func;
-		};
-	}
-
-	// Register new object with window
-	window.XMLHttpRequest = cXMLHttpRequest;
-
-})();
-
-    // End browser file: XMLHttpRequest.js
-  }
-}(typeof window !== 'undefined' ? window : {});
-
-})()
-},{}]},{},[1,11])
+},{"../../utils/messageTypes":19,"eventify":12}]},{},[1,10])
 ;

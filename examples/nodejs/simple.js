@@ -5,7 +5,13 @@ var appToken = 'muzzlionaire';
 console.log(appToken);
 console.log('##Activity: creating activity');
 
+//Disable errors if you want
+muzzley.sendErrors = true;
+
 //Catch error events
+
+
+
 muzzley.on('error', function(err){
   console.log(err.toString());
 });
