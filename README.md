@@ -181,10 +181,10 @@ participant.on('sharingInvitation', function (invite, cbAccept) {
 });
 ```
 
-`sendFile` This event is emitted every time a participant is actualy sending a file (if you don't accept the `sharingInvitation` you will never get this event)
+`sharingFile` This event is emitted every time a participant is actualy sending a file (if you don't accept the `sharingInvitation` you will never get this event)
 
 ```
-participant.on('sendFile', function (file) {
+participant.on('sharingFile', function (file) {
   // "file" object contains all information about the file 
   console.log(file);
 });

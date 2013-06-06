@@ -45,7 +45,7 @@ muzzley.connectApp(appToken, function(err, activity){
         console.log(action);
         cb(true, 'weee');
       });
-      participant.on('sendFile', function (action) {
+      participant.on('sharingFile', function (action) {
         // Action object represents the participants interaction
         request(action.url)
           .pipe(fs.createWriteStream('./shares/' + action.fileName));
