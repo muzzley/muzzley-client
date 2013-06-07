@@ -7,14 +7,15 @@
   <h3>Muzzley JavaScript SDK Demo</h3>
   <img id="qrCodeImg"/>
   <script>
-    //disable errors to the
-    muzzley.sendErrors = true;
+    var appToken = 'your app token';
+
+    muzzley.sendErrors = false;
 
     muzzley.on('error', function(err){
       console.log(err);
     });
 
-    muzzley.connectApp('muzzlionaire', function(err, activity){
+    muzzley.connectApp(appToken, function(err, activity){
 
       if (err) return console.log("err: " + err );
 
