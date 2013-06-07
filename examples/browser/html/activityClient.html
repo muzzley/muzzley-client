@@ -22,6 +22,17 @@
       qrCodeImg.src = activity.qrCodeUrl;
 
       console.log('##Activity: activityCreated');
+
+      muzzley.connectUser('muzdev', activity.activityId, function(err, paticipant){
+        if (err) return console.log("err: " + err );
+        //console.log(paticipant);
+        console.log('##User joinedActivity');
+        paticipant.on('changeWidget', function(widget){
+          console.log('##User changeWidget recived');
+        });
+
+      });
+
       console.log(activity);
       activity.on('participantQuit', function(participant){
         console.log('##Activity: "EVENT" participantQuit');
