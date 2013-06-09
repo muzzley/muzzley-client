@@ -31,6 +31,7 @@
           console.log('##User joinedActivity');
           participant.on('changeWidget', function(widget){
             console.log('##changeWidget recived for widget ' + widget);
+            
             if (widget.widget === 'gamepad') {
               participant.sendWidgetData({
                 "w": "gamepad",
@@ -39,6 +40,13 @@
                 "v": "a"
               });
             }
+
+            participant.sendSignal('customSignal',{"someVar": "some value"});
+            participant.sendSignal('customSignal2',{"someVar": "some value"}, function (err, result) {
+              console.log('customSignal2 response:');
+              console.log(arguments);
+            });
+
           });
         });
 
@@ -65,9 +73,38 @@
 
             participant.on('action', function (action) {
               // Action object represents the participants interaction
+              console.log('Widget Action:');
               console.log(action);
             });
           });
+
+          participant.on('signalingMessage', function(type, data) {
+            console.log('Signaling Messagex');
+            console.log(arguments);
+          });
+
+          participant.on('signalingRequestMessage', function(type, data, callback) {
+            console.log('Signaling Request Message');
+            console.log(arguments);
+            callback(true, 'Signaling request message successfully processed', {anotherVar: true});
+          });
+
+          participant.setupComponent(
+            [{
+              "c": "deviceMotion",
+              "id": "dm1",
+              "a": "enable",
+              "p": {
+                "roll": true,
+                "pitch": false
+              }
+            }],
+            function (err, response) {
+              console.log('Setup component response:');
+              console.log(arguments);
+            }
+          );
+
         });
       });
     </script>
