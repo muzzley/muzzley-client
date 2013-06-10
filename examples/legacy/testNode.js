@@ -12,7 +12,7 @@ muzzley.connectApp('your-app-token', function(err, activity){
 
   if (err) return console.log("err: " + err );
 
-  muzzley.connectUser('muzdev', activity.activityId, function(err, paticipant){
+  muzzley.connectUser('your-user-token', activity.activityId, function(err, paticipant){
     if (err) return console.log("err: " + err );
     //console.log(paticipant);
     console.log('##User joinedActivity');

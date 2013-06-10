@@ -39,7 +39,7 @@ muzzleyApp.on('connected', function(activity){
 
   var muzzleyParticipant = new muzzley(optionsParticipant);
 
-  muzzleyParticipant.joinActivity('muzdev', activity.activityId, function(err, user){
+  muzzleyParticipant.joinActivity('your-user-token', activity.activityId, function(err, user){
     console.log('event');
     console.log(user);
     user.on('changeWidget', function(widget){
