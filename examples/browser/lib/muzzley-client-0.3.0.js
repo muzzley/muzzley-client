@@ -3267,14 +3267,10 @@ function signalingMessage(muzzData, next){
     }
 
     if (participant) {
-
-      console.log('SIGNALING MESSAGE, muzzData:');
-      console.log(muzzData);
-
       switch (msgType) {
         case messageTypes.MESSAGE_TYPE_REQUEST:
           // RPC message, requires a response
-          participant.trigger('signalingRequestMessage', muzzData.d.a, muzzData.d.d, function (success, message, data) {
+          participant.trigger('signalingMessage', muzzData.d.a, muzzData.d.d, function (success, message, data) {
             _this.remoteCalls.response(muzzData.h, success, message, data);
           });
           return;
@@ -3289,6 +3285,7 @@ function signalingMessage(muzzData, next){
 }
 
 module.exports = signalingMessage;
+
 },{"../utils/messageTypes":21}],19:[function(require,module,exports){
 var commons = require('./commons.js');
 var messageTypes = require('../utils/messageTypes');

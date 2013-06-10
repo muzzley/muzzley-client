@@ -78,15 +78,15 @@
             });
           });
 
-          participant.on('signalingMessage', function(type, data) {
-            console.log('Signaling Messagex');
-            console.log(arguments);
-          });
-
-          participant.on('signalingRequestMessage', function(type, data, callback) {
-            console.log('Signaling Request Message');
-            console.log(arguments);
-            callback(true, 'Signaling request message successfully processed', {anotherVar: true});
+          participant.on('signalingMessage', function(type, data, callback) {
+            if (callback) {
+              console.log('Signaling RPC Message');
+              console.log(arguments);
+              callback(true, 'Signaling request message successfully processed', {anotherVar: true});
+            } else {
+              console.log('Signaling Message');
+              console.log(arguments);
+            }
           });
 
           participant.setupComponent(
