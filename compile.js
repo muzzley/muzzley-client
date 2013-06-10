@@ -13,7 +13,9 @@ js.bundle(function(err, file){
 
   var fileName;
   var minified = UglifyJS(file);
-  fs.mkdirSync('dist');
+  if (!fs.existsSync('dist')) {
+    fs.mkdirSync('dist');
+  }
 
   fileName = __dirname + '/dist/muzzley-client-' + version.version + '.js';
   fs.writeFileSync(fileName, file);
