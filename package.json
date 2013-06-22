@@ -6,17 +6,15 @@
   "main": "lib/dist-node.js",
   "browser": "lib/dist-browserify.js",
   "dependencies": {
-    "browserify": "*",
-    "eventify": "*",
-    "ws":"*",
-    "uglify-js":"1.3.4",
-    "event-stream":"*",
-    "sockjs-client" : "git://github.com/substack/sockjs-client.git#browserify-npm",
-    "shoe":"*",
-    "JSONStream":"*",
-    "request":"*",
-    "browser-request":"*",
-    "reqwest":"*"
+    "browserify": "~2.18.1",
+    "eventify": "~0.3.8",
+    "ws": "~0.4.25",
+    "uglify-js": "~1.3.4",
+    "event-stream": "~3.0.15",
+    "JSONStream": "~0.6.4",
+    "request": "~2.21.0",
+    "browser-request": "~0.2.1",
+    "reqwest": "~0.8.2"
   },
   "repository": {
     "type": "git",
