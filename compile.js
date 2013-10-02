@@ -5,14 +5,17 @@ var version = require('./package.json');
 
 
 var js = browserify(['./vendor/sockjs.js']);
-js.require('./lib/', {expose:'muzzley-sdk-js'});
+js.require('./lib/', {expose:'muzzley-client'});
 
-js.add('./lib/browser-dist.js');
+js.add('./lib/dist-browser.js');
 
 js.bundle(function(err, file){
 
   var fileName;
   var minified = UglifyJS(file);
+  if (!fs.existsSync('dist')) {
+    fs.mkdirSync('dist');
+  }
 
   fileName = __dirname + '/dist/muzzley-client-' + version.version + '.js';
   fs.writeFileSync(fileName, file);
@@ -22,10 +25,7 @@ js.bundle(function(err, file){
   fs.writeFileSync(fileName, minified);
   console.log('It\'s saved and ready to use at ' + fileName);
 
-  fileName = __dirname + '/tests/public/muzzley-client-' + version.version + '.min.js';
-  fs.writeFileSync(fileName, minified);
-  console.log('\nTo test it run these commands:');
-  console.log('1. Run "npm install" in the "tests/" folder');
-  console.log('2. Run "node tests/testDist.js"');
-  console.log('3. Open the link: http://localhost:8081/min.html (and check the console)');
+  console.log("");
+  console.log("Check examples folder to find more about how to use the lib");
+
 });

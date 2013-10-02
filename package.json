@@ -1,13 +1,36 @@
 {
   "name": "muzzley-client",
-  "version": "0.2.0",
-  "private": true,
-  "main": "lib/node-dist.js",
-  "browser": "lib/index.js",
+  "version": "0.3.4",
+  "author": "muzzley <support@muzzley.com>",
+  "description": "The muzzley client library",
+  "main": "lib/dist-node.js",
+  "browser": "lib/dist-browserify.js",
   "dependencies": {
-    "browserify": "2.x.x",
-    "eventify": "0.3.4",
-    "ws":"0.4.25",
-    "uglify-js":"1.3.4"
-  }
+    "browserify": "~2.23.1",
+    "eventify": "~0.3.8",
+    "ws": "~0.4.25",
+    "uglify-js": "~1.3.4",
+    "event-stream": "~3.0.15",
+    "JSONStream": "~0.6.4",
+    "request": "~2.21.0",
+    "browser-request": "~0.2.1",
+    "reqwest": "~0.8.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/muzzley/muzzley-client.git"
+  },
+  "keywords": [
+    "muzzley",
+    "realtime",
+    "real-time",
+    "websockets",
+    "cloud",
+    "interaction",
+    "remote-control"
+  ],
+  "engines": {
+    "node": ">=0.8"
+  },
+  "license": "MIT"
 }

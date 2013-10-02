@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="/muzzley-client-0.3.0.js"></script>
+ </head>
+  <body>
+    <h3>Muzzley JavaScript SDK Demo</h3>
+    <img id="qrCodeImg"/>
+    <script>
+
+      var appToken = 'your app token';
+      var userToken = 'your user token';
+
+      muzzley.sendErrors = false;
+
+      muzzley.on('error', function(err){
+        console.log(err);
+      });
+
+      muzzley.connectApp(appToken, function(err, activity){
+
+        if (err) return console.log("err: " + err );
+
+        var qrCodeImg = document.getElementById('qrCodeImg');
+        qrCodeImg.src = activity.qrCodeUrl;
+
+        console.log('##Activity: activityCreated');
+
+        muzzley.connectUser(userToken, activity.activityId, function(err, participant){
+          if (err) return console.log("Connect user error: " + err );
+          console.log('##User joinedActivity');
+          participant.on('changeWidget', function(widget){
+            console.log('##changeWidget recived for widget ' + widget);
+            
+            if (widget.widget === 'gamepad') {
+              participant.sendWidgetData({
+                "w": "gamepad",
+                "e": "press", 
+                "c": "ba",
+                "v": "a"
+              });
+            }
+
+            participant.sendSignal('customSignal',{"someVar": "some value"});
+            participant.sendSignal('customSignal2',{"someVar": "some value"}, function (err, result) {
+              console.log('customSignal2 response:');
+              console.log(arguments);
+            });
+
+          });
+        });
+
+        console.log(activity);
+        activity.on('participantQuit', function(participant){
+          console.log('##Activity: "EVENT" participantQuit');
+        });
+
+        activity.on('participantJoin', function(participant){
+
+          console.log('##Activity: participantJoined');
+          console.log('##Activity: sending changeWidget');
+
+          participant.changeWidget('gamepad', function (err) {
+            if (err) return console.log("err: " + err );
+            console.log('##Activity: recived changeWidget okay');
+
+            participant.on('quit', function (action) {
+              // Action object represents the participants interaction
+              console.log('quit');
+              //console.log(action);
+            });
+
+
+            participant.on('action', function (action) {
+              // Action object represents the participants interaction
+              console.log('Widget Action:');
+              console.log(action);
+            });
+          });
+
+          participant.on('signalingMessage', function(type, data, callback) {
+            if (callback) {
+              console.log('Signaling RPC Message');
+              console.log(arguments);
+              callback(true, 'Signaling request message successfully processed', {anotherVar: true});
+            } else {
+              console.log('Signaling Message');
+              console.log(arguments);
+            }
+          });
+
+          participant.setupComponent(
+            [{
+              "c": "deviceMotion",
+              "id": "dm1",
+              "a": "enable",
+              "p": {
+                "roll": true,
+                "pitch": false
+              }
+            }],
+            function (err, response) {
+              console.log('Setup component response:');
+              console.log(arguments);
+            }
+          );
+
+        });
+      });
+    </script>
+  </body>
+</html>

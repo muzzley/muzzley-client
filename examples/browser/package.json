@@ -1,0 +1,11 @@
+{
+  "name": "muzzley-browser-example",
+  "version": "0.0.1",
+  "author": "muzzley <support@muzzley.com>",
+  "description": "The muzzley client library used in a normal web browser",
+   "dependencies": {
+    "express":"*",
+    "browserify-middleware":"*",
+    "debug":"*"
+  }
+}
