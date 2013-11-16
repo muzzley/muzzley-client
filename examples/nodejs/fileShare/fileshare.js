@@ -32,35 +32,47 @@ muzzley.connectApp(appToken, function(err, activity){
     participant.changeWidget('assetsPicker', function (err) {
       if (err) return console.log("err: " + err );
       console.log('##Activity: recived changeWidget okay');
+      console.log(arguments);
 
-      participant.on('quit', function (action) {
-        // Action object represents the participants interaction
+      participant.on('quit', function () {
         console.log('quit');
-        //console.log(action);
       });
 
+      console.log('Inviting to a file sharing session.');
+      var sharingContext = participant.createSharingContext('context1');
+      sharingContext.invite(
+        {
+          filesCount: 1,
+          totalSize: 1024
+        },
+        function (err, result) {
+          console.log('Sharing invitation accepted? ' + result.accept + '! Reason? ' + result.reason);
+        }
+      );
 
-      participant.on('sharingInvitation', function (action, cb) {
-        // Action object represents the participants interaction
-        console.log(action);
-        cb(true, 'weee');
+      participant.on('sharingInvitation', function (action, callback) {
+        console.log('SHARING INVITATION');
+        console.log(arguments);
+
+        callback(true, 'Invitation accepted');
       });
-      participant.on('sharingFile', function (action) {
-        // Action object represents the participants interaction
-        request(action.url)
-          .pipe(fs.createWriteStream('./shares/' + action.fileName));
 
-        console.log(action);
+      participant.on('sharingFile', function (file) {
+        console.log('SHARING FILE notification');
+        console.log(file);
+
+        request(file.url)
+          .pipe(fs.createWriteStream('./shares/' + file.fileName));
       });
 
-      participant.on('sharingEnd', function (action) {
-        // Action object represents the participants interaction
-        console.log(action);
+      participant.on('sharingEnd', function (data) {
+        console.log('SHARING END');
+        console.log(data);
       });
 
-      participant.on('sharingCancel', function (action) {
-        // Action object represents the participants interaction
-        console.log(action);
+      participant.on('sharingCancel', function (data) {
+        console.log('SHARING CANCEL');
+        console.log(data);
       });
 
     });
