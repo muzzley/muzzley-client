@@ -1,5 +1,5 @@
 var argv = require('optimist').argv;
-var muzzley = require('../lib/dist-node.js');
+var muzzley = require('../../lib/dist-node.js');
 
 //Catch the app token passed 
 var appToken = argv.t ? argv.t : 'your-app-token';
