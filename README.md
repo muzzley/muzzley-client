@@ -291,7 +291,3 @@ user.sendWidgetData({
 	"e": 2
 });
 ```
-
-## Tests
-
-Coming soon.
