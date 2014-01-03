@@ -291,3 +291,7 @@ user.sendWidgetData({
 	"e": 2
 });
 ```
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/muzzley/muzzley-client/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
