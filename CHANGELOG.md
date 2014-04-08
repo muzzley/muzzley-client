@@ -1,5 +1,9 @@
 # Muzzley JS Lib Changelog
 
+2014-04-08: Version 0.3.7
+
+    * Added support for the `deviceId` property in the handshake process.
+
 2014-04-04: Version 0.3.6
 
     * Fixed an issue that prevented participants to be correctly notified of file sharing invitations.
