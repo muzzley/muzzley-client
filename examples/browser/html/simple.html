@@ -1,56 +1,91 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <script src="/muzzley-client-0.3.0.js"></script>
- </head>
-<body>
-  <h3>Muzzley JavaScript SDK Demo</h3>
-  <img id="qrCodeImg"/>
-  <script>
-    var appToken = 'your app token';
+    <script src="muzzley-client-0.4.0.js"></script>
+    <style type="text/css">
+      body {
+        font-family: sans-serif;
+      }
+      .status {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>muzzley JavaScript Lib Demo</h3>
+    
+    <div>
+      <div id="status-connecting" class="status">Connecting...</div>
+      <div id="status-connected" class="status">
+        Connected. Scan the following QR code with the muzzley smartphone app.
+        <br />
+        Open your browser console to see more detailed interaction.
+      </div>
+      <div id="status-invalid" class="status">You haven't defined an app token. Go to <a href="http://www.muzzley.com">muzzley.com</a> to get yours. Then edit this source code and try again.</div>
+    </div>
+    <div class="qr-code-container">
+      <img id="qr-code-image"/>
+    </div>
 
-    muzzley.sendErrors = false;
+    <script>
 
-    muzzley.on('error', function(err){
-      console.log(err);
-    });
+      var muz = new Muzzley();
+      var appOptions = {
+        token: 'your-app-token'
+      };
 
-    muzzley.connectApp(appToken, function(err, activity){
+      // This code block is just for the sake of this example
+      if (appOptions.token === 'your-app-token') {
+        document.getElementById('status-invalid').style.display = 'block';
+        throw new Error('You must provide a valid app token. Get one at http://www.muzzley.com');
+      }
 
-      if (err) return console.log("err: " + err );
+      document.getElementById('status-connecting').style.display = 'block';
 
-      var qrCodeImg = document.getElementById('qrCodeImg');
-      qrCodeImg.src = activity.qrCodeUrl;
+      muz.connectApp(appOptions);
 
-      console.log('##Activity: activityCreated');
-      console.log(activity);
-      activity.on('participantQuit', function(participant){
-        console.log('##Activity: "EVENT" participantQuit');
+      muz.on('error', function (err) {
+        console.log('[error] Generic error: ', err);
       });
+      muz.on('connect', function (activity) {
+        var qrCodeImg = document.getElementById('qr-code-image');
+        qrCodeImg.src = activity.qrCodeUrl;
 
-      activity.on('participantJoin', function(participant){
+        document.getElementById('status-connecting').style.display = 'none';
+        document.getElementById('status-connected').style.display = 'block';
 
-        console.log('##Activity: participantJoined');
-        console.log('##Activity: sending changeWidget');
+        console.log('[Connect] Activity created. Yay!');
+        console.log('[Connect] You can connect to this activity with Activity Id: ' + activity.activityId);
+        console.log('[Connect] Or you can scan the QR code that should be your screen.');
 
-        participant.changeWidget('gamepad', function (err) {
-          if (err) return console.log("err: " + err );
-          console.log('##Activity: recived changeWidget okay');
+        activity.on('participantJoin', function (participant) {
 
-          participant.on('quit', function (action) {
-            // Action object represents the participants interaction
-            console.log('quit');
-            //console.log(action);
+          console.log('Participant "' + participant.name + '" joined!');
+
+          participant.changeWidget('gamepad', function (err) {
+            // A participant joined. Tell her to transform into a gamepad.
+            if (err) return console.log('changeWidget error: ' + err);
           });
-
 
           participant.on('action', function (action) {
-            // Action object represents the participants interaction
-            console.log(action);
+            // The action object represents the participant's interaction.
+            // In this case it might be "button 'a' was pressed".
+            console.log('Widget action received: ', action);
           });
+
+          participant.on('quit', function () {
+            // You can also check for participant quit events
+            // directly in each participant object.
+          });
+
         });
+
+        activity.on('participantQuit', function (participant) {
+          console.log('Participant "' + participant.name + '" quit!');
+        });
+
       });
-    });
-  </script>
-</body>
+
+    </script>
+  </body>
 </html>
