@@ -59,25 +59,25 @@ muz.on('debug', function (info) {
   // Here you get useful debugging info.
   // All `info` objects have a `type` and a `message` properties.
   // We're not logging this now so the output doesn't become too verbose.
-  //console.log('[DEBUG] ['+info.type+']: ' + info.message);
+  console.log('[DEBUG] ['+info.type+']: ' + info.message);
 });
-muz.on('connect_error', function (err) {
-  console.log('[connect_error] Error connecting:', err);
+muz.on('connectError', function (err) {
+  console.log('[connectError] Error connecting:', err);
 });
-muz.on('connect_timeout', function (timeout) {
-  console.log('[connect_timeout] Connection timeout (ms):', timeout);
+muz.on('connectTimeout', function (timeout) {
+  console.log('[connectTimeout] Connection timeout (ms):', timeout);
 });
-muz.on('reconnect_attempt', function (attempt) {
-  console.log('[reconnect attempt] Attempting to reconnect:', attempt);
+muz.on('reconnectAttempt', function (attempt) {
+  console.log('[reconnectAttempt] Attempting to reconnect:', attempt);
 });
 muz.on('reconnect', function (attempt) {
   console.log('[reconnect] Successfully reconnected after attempt:', attempt);
 });
-muz.on('reconnect_error', function (err) {
-  console.log('[reconnect error] Error reconnecting:', err);
+muz.on('reconnectError', function (err) {
+  console.log('[reconnectError] Error reconnecting:', err);
 });
-muz.on('reconnect_failed', function () {
-  console.log('[reconnect failed] Could not reconnect after max defined attempts');
+muz.on('reconnectFailed', function () {
+  console.log('[reconnectFailed] Could not reconnect after max defined attempts');
 });
 muz.on('error', function (err) {
   console.log('[error] Generic error:', err);
