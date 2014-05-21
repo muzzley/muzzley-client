@@ -38,7 +38,7 @@
         participant.changeWidget('assetsPicker', function (err) {
           if (err) return appLog("Error: " + err );
 
-          appLog('recived changeWidget okay');
+          appLog('received changeWidget okay');
 
           participant.on('quit', function (action) {
             // Action object represents the participants interaction
