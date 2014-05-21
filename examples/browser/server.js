@@ -8,28 +8,30 @@ var UglifyJS = require("uglify-js");
 var browserify = require('browserify');
 var version = require('../../package.json');
 
+var port = process.env.PORT || 3000;
+var exampleUrl = 'http://localhost:'+port+'/simple.html';
+
 var js = browserify(['../../vendor/sockjs.js', 'debug']);
 js.require('../../lib/', {expose:'muzzley-client'});
 
 js.add('../../lib/dist-browser.js');
 
 js.bundle(function(err, file){
-
   if (err){
-    console.log('something wrong appened when compiling the lib:');
-    console.log(err);
-  } else {
-    var fileName;
-    var minified = UglifyJS(file);
-
-    fileName = __dirname + '/lib/muzzley-client-' + version.version + '.js';
-    fs.writeFileSync(fileName, file);
-
-    console.log('It\'s compiled and ready to use at http://localhost:3000/simple.html');
-
-    //Start the server
-    app.listen(3001);
+    return console.log('Oops. Something just went wront. Error:', err);
   }
+
+  var fileName;
+  var minified = UglifyJS(file);
+
+  fileName = __dirname + '/lib/muzzley-client-' + version.version + '.js';
+  fs.writeFileSync(fileName, file);
+
+  // Start the server
+  app.listen(port, function () {
+    console.log('The examples should be running at ' + exampleUrl);
+  });
+
 });
 
 
@@ -48,8 +50,5 @@ app
 
 
 app.get('/', function (req, res) {
-  res.send('This is a demo! you shloud open http://localhost:3000/simple.html to see something');
+  res.send('Go to <a href="' + exampleUrl + '">'+exampleUrl+'</a> to see an example.');
 });
-
-
-
