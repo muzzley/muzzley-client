@@ -274,7 +274,7 @@ The `user` object will have the participant's properties:
 The `user` is also an event-emitter, and you can listen for `changeWidget` events:
 
 ```
-user('changeWidget', function (widget) {
+user.on('changeWidget', function (widget) {
   
 });
 ```
@@ -294,4 +294,3 @@ user.sendWidgetData({
 
 
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/muzzley/muzzley-client/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
-
