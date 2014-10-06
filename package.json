@@ -1,7 +1,7 @@
 {
   "name": "muzzley-client",
   "version": "0.4.0",
-  "protocolVersion": "1.2.0",
+  "protocolVersion": "2.0.0",
   "author": "muzzley <support@muzzley.com>",
   "description": "The muzzley client library",
   "main": "lib/dist-node.js",

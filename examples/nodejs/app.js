@@ -4,7 +4,14 @@ var connectAppOptions = {
   token: process.env.APP_TOKEN || 'your-app-token' // Get yours at http://muzzley.com
 };
 
-var muz = new Muzzley();
+var muz = new Muzzley({
+  //idleTimeout: 10000,
+  connection: {
+    //host: 'localhost',
+    host: 'platform.office.muzzley.com'
+    //port: 9292
+  }
+});
 
 muz.connectApp(connectAppOptions);
 
