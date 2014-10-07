@@ -15,7 +15,7 @@ var channelInit = muz.initApp({
   token: 'muzzlionaire',
   create: true
 });
-channelInit.on('create', function (activity) {
+channelInit.on('created', function (activity) {
   console.log('Init App Complete! Response:', activity);
   console.log('Time taken: ' + (new Date().getTime() - initAppStart) + 'ms');
 });
