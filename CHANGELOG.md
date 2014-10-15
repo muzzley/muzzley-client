@@ -1,5 +1,9 @@
 # Muzzley JS Lib Changelog
 
+2014-10-15: Version 0.3.9
+
+    * Repackaged the npm module because it contained unnecessary files.
+
 2014-04-15: Version 0.3.8
 
     * Fixed an issue that prevented multiple user connections.

@@ -1,6 +1,6 @@
 {
   "name": "muzzley-client",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "author": "muzzley <support@muzzley.com>",
   "description": "The muzzley client library",
   "main": "lib/dist-node.js",
