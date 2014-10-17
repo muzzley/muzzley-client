@@ -1,5 +1,11 @@
 # Muzzley JS Lib Changelog
 
+2014-10-17: Version 0.4.0
+
+    * The library must now be instantiated.
+    * Added many events such as 'connect', 'reconnect', etc.
+    * Added idling detection and respective reconnection logic.
+
 2014-10-15: Version 0.3.9
 
     * Repackaged the npm module because it contained unnecessary files.
