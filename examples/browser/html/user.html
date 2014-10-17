@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="muzzley-client-0.4.0.js"></script>
+    <style type="text/css">
+      body {
+        font-family: sans-serif;
+      }
+      .status {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>muzzley JavaScript Lib Demo</h3>
+    
+    <div>
+      <div id="status-connecting" class="status">Connecting...</div>
+      <div id="status-connected" class="status">
+        Connected to the application.
+      </div>
+    </div>
+
+    <div>
+      <div>
+        Provide a Muzzley Key (Activity Id) below and hit connect.
+        <br />
+        Open your browser console to see more detailed interaction.
+      </div>
+      <input type="text" id="activity-id" placeholder="Muzzley Key" />
+      <button id="connect">Connect</button>
+    </div>
+
+    <script>
+
+      function connect(activityId) {
+        var muz = new Muzzley();
+        var userOptions = {
+          token: 'guest',
+          activityId: activityId
+        };
+
+        muz.connectUser(userOptions);
+
+        muz.on('connect', function (user) {
+
+          document.getElementById('status-connecting').style.display = 'none';
+          document.getElementById('status-connected').style.display = 'block';
+
+          console.log('[Connect] User: ', user);
+
+          user.on('changeWidget', function (widget) {
+            console.log('changeWidget received for widget ' + widget.widget);
+
+            if (widget.widget === 'gamepad') {
+              // Simulate pressing the Gamepad's 'A' button
+              user.sendWidgetData({
+                w: 'gamepad',
+                e: 'press',
+                c: 'ba',
+                v: 'a'
+              });
+            }
+          });
+        });
+
+        muz.on('error', function (err) {
+          console.log('[error]', err);
+        });
+
+        muz.on('disconnect', function (obj) {
+          console.log('[disconnect] Disconnected!');
+        });
+      }
+
+
+      document.getElementById('connect').onclick = function (event) {
+        var activityId = document.getElementById('activity-id').value;
+        if (!activityId) {
+          alert('Provide an activity id before connecting.');
+          return;
+        }
+        document.getElementById('status-connecting').style.display = 'block';
+        connect(activityId);
+      }
+
+    </script>
+  </body>
+</html>

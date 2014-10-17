@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="muzzley-client-0.4.0.js"></script>
+    <style type="text/css">
+      body {
+        font-family: sans-serif;
+      }
+      .status {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>muzzley JavaScript Lib Demo</h3>
+    
+    <div>
+      <div id="status-connecting" class="status">Connecting...</div>
+      <div id="status-connected" class="status">
+        Connected. Scan the following QR code with the muzzley smartphone app.
+        <br />
+        Open your browser console to see more detailed interaction.
+      </div>
+    </div>
+
+    <div>
+      <div>
+        Provide your Muzzley App Token below and hit connect. You can get one at <a href="http://www.muzzley.com">http://www.muzzley.com</a>.
+        <br />
+        Open your browser console to see more detailed interaction.
+      </div>
+      <input type="text" id="app-token" placeholder="App Token" />
+      <button id="connect">Connect</button>
+    </div>
+
+    <div class="qr-code-container">
+      <img id="qr-code-image"/>
+      <div id="activity-id"></div>
+    </div>
+
+    <script>
+
+      function connect(appToken) {
+        var muz = new Muzzley();
+        var appOptions = {
+          token: appToken
+        };
+
+        muz.connectApp(appOptions);
+
+        muz.on('error', function (err) {
+          console.log('[error]', err);
+        });
+        muz.on('connect', function (activity) {
+          var qrCodeImg = document.getElementById('qr-code-image');
+          qrCodeImg.src = activity.qrCodeUrl;
+          var activityIdDiv = document.getElementById('activity-id');
+          activityIdDiv.innerHTML = 'Activity Id: ' + activity.activityId;
+
+          document.getElementById('status-connecting').style.display = 'none';
+          document.getElementById('status-connected').style.display = 'block';
+
+          console.log('[Connect] Activity created. Yay!');
+          console.log('[Connect] You can connect to this activity with Activity Id: ' + activity.activityId);
+          console.log('[Connect] Or you can scan the QR code that should be your screen.');
+
+          activity.on('participantJoin', function (participant) {
+
+            console.log('Participant "' + participant.name + '" joined!');
+
+            participant.changeWidget('gamepad', function (err) {
+              // A participant joined. Tell her to transform into a gamepad.
+              if (err) return console.log('changeWidget error: ' + err);
+            });
+
+            participant.on('action', function (action) {
+              // The action object represents the participant's interaction.
+              // In this case it might be "button 'a' was pressed".
+              console.log('Widget action received: ', action);
+            });
+
+            participant.on('quit', function () {
+              // You can also check for participant quit events
+              // directly in each participant object.
+            });
+
+          });
+
+          activity.on('participantQuit', function (participant) {
+            console.log('Participant "' + participant.name + '" quit!');
+          });
+
+        });
+      }
+
+      document.getElementById('connect').onclick = function (event) {
+        var appToken = document.getElementById('app-token').value;
+        if (!appToken) {
+          alert('Provide an App Token before connecting.');
+          return;
+        }
+        document.getElementById('status-connecting').style.display = 'block';
+        connect(appToken);
+      }
+    </script>
+  </body>
+</html>
