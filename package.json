@@ -1,6 +1,6 @@
 {
   "name": "muzzley-client",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "protocolVersion": "1.2.0",
   "author": "muzzley <support@muzzley.com>",
   "description": "The muzzley client library",
