@@ -1,5 +1,13 @@
 # Muzzley JS Lib Changelog
 
+2014-10-30: Version 0.4.2
+
+    * Fixed `connect` trigger when connection is only successful after a reconnect.
+
+2014-10-17: Version 0.4.1
+
+    * Fixed `connectApp()` backward compatibility.
+
 2014-10-17: Version 0.4.0
 
     * The library must now be instantiated.
