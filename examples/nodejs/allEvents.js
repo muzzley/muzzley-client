@@ -10,21 +10,31 @@ var Muzzley = require('muzzley-client');
 // a `user` object instead of an `activity` object.
 
 var muz = new Muzzley({
-  connectTimeout: 15000,
-  reconnect: true,
-  reconnectionDelay: 500,
-  reconnectionLimit: 10000,
-  reconnectionAttempts: 100
+  // connectTimeout: 15000,
+  // reconnect: true,
+  // reconnectionDelay: 500,
+  // reconnectionLimit: 10000,
+  // reconnectionAttempts: 100,
+  //secure: true,
+  connection: {
+    //host: 'muzload-nl01.muzzley.com'
+    //host: 'geoplatform.muzzley.com'
+    host: 'localhost',
+    port: 9292
+  }
 });
 
 var connectAppOptions = {
   token: process.env.APP_TOKEN || 'your-app-token', // Get yours at http://muzzley.com
 };
+var startTime = Date.now();
 muz.connectApp(connectAppOptions);
 
 muz.on('connect', function (activity) {
+  
+  var duration = Date.now() - startTime;
 
-  console.log('[Connect] Activity created. Yay!');
+  console.log('[Connect] Activity created. Yay! Duration: ' + duration + 'ms');
   console.log('[Connect] You can connect to this activity with Activity Id: ' + activity.activityId);
   console.log('[Connect] If you need a QR code to scan you can open: ' + activity.qrCodeUrl);
 
@@ -59,7 +69,7 @@ muz.on('debug', function (info) {
   // Here you get useful debugging info.
   // All `info` objects have a `type` and a `message` properties.
   // We're not logging this now so the output doesn't become too verbose.
-  console.log('[DEBUG] ['+info.type+']: ' + info.message);
+  console.log('[DEBUG] ['+new Date()+'.'+Date.now()%1000+'] ['+info.type+']: ' + info.message);
 });
 muz.on('connectError', function (err) {
   console.log('[connectError] Error connecting:', err);
