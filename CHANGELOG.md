@@ -1,5 +1,10 @@
 # Muzzley JS Lib Changelog
 
+2014-11-17: Version 0.5.0
+
+    * Implemented multi-channel communication.
+    * Implemented Pub/Sub communication.
+
 2014-10-30: Version 0.4.2
 
     * Fixed `connect` trigger when connection is only successful after a reconnect.
