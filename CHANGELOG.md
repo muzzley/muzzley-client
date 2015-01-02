@@ -1,5 +1,12 @@
 # Muzzley JS Lib Changelog
 
+2015-01-02: Version 0.5.1
+
+    * Fixed RPC responses with primitive data.
+    * Added new app/manager id and auth token authentication.
+    * Improved reconnection logic.
+    * Other bugfixes.
+
 2014-11-17: Version 0.5.0
 
     * Implemented multi-channel communication.
