@@ -1,5 +1,10 @@
 # Muzzley JS Lib Changelog
 
+2015-02-13: Version 0.5.2
+
+    * Fixed reconnection event when reconnecting without any active subscription.
+    * Replying to server heartbeats with a heartbeat.
+
 2015-01-02: Version 0.5.1
 
     * Fixed RPC responses with primitive data.
