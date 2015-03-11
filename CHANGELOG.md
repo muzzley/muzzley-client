@@ -1,5 +1,10 @@
 # Muzzley JS Lib Changelog
 
+2015-03-11: Version 0.5.3
+
+    * Fixed case where `connect` event was emitted multiple times.
+    * Fixed multiple parallel connections on timeout. 
+
 2015-02-13: Version 0.5.2
 
     * Fixed reconnection event when reconnecting without any active subscription.
