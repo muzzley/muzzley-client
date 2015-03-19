@@ -1,5 +1,9 @@
 # Muzzley JS Lib Changelog
 
+2015-03-19: Version 0.5.4
+
+    * Fixed another multiple parallel connections on timeout. 
+
 2015-03-11: Version 0.5.3
 
     * Fixed case where `connect` event was emitted multiple times.
