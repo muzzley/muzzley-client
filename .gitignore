@@ -3,6 +3,8 @@ dump.rdb
 /nbproject/private/
 /node_modules/
 /dist/*
+/examples/dev/
+/examples/node_modules/
 
 lib-cov
 *.seed

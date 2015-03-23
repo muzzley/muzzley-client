@@ -9,58 +9,15 @@ var userOptions = {
   activityId: process.env.ACTIVITY_ID || 'some-activity-id'
 };
 
-var muz = new Muzzley({
-  //idleTimeout: 10000,
-  connection: {
-    //host: 'localhost',
-    host: 'platform.office.muzzley.com'
-    //port: 9292
-  }
-});
-
-var channelUser1 = muz.connectUser(userOptions);
-channelUser1.on('joined', function (user) {
-  console.log('USER CHANNEL ON CONNECT!', user);
-});
-
-setTimeout(function () {
-
-  var joinOptions2 = {
-    activityId: process.env.ACTIVITY_ID || 'some-activity-id'
-  };
-  var channel2 = muz.join(joinOptions2);
-  channel2.on('joined', function (user) {
-    console.log('Joined Second Channel to first activity. User object:', user);
-
-    user.on('changeWidget', function (data) {
-      console.log('CHANGE WIDGET EVENT TRIGGERED!', data);
-    });
-
-    user.on('activityTerminated', function () {
-      console.log('ACTIVITY TERMINATED EVENT TRIGGERED!');
-    });
-
-  });
-
-  var joinOptions3 = {
-    activityId: process.env.ACTIVITY_ID2 || 'some-activity-id'
-  };
-  var channel3 = muz.join(joinOptions3);
-  channel3.on('joined', function (user) {
-    console.log('Joined Third Channel to second activity. User Object: ', user);
-  });
-
-  // channel3.quit();
-
-}, 2000);
-
-
-
+var muz = new Muzzley();
+var connectUserStart = new Date().getTime();
+muz.connectUser(userOptions);
 
 var globalUser = null;
 
 muz.on('connect', function (user) {
   console.log('[Connect] User: ', user);
+  console.log('Time taken: ' + (new Date().getTime() - connectUserStart) + 'ms');
 
   user.on('changeWidget', function (widget) {
     console.log('changeWidget received for widget ' + widget.widget);
@@ -92,5 +49,5 @@ muz.on('reconnect', function (attempt) {
 });
 
 muz.on('debug', function (info) {
-  // console.log('[DEBUG] {'+info.type+'} ' + info.message);
+  console.log('[DEBUG] {'+info.type+'} ' + info.message);
 });

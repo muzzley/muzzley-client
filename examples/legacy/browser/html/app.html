@@ -68,16 +68,40 @@
 
             console.log('Participant "' + participant.name + '" joined!');
 
-            participant.changeWidget('gamepad', function (err) {
-              // A participant joined. Tell her to transform into a gamepad.
-              if (err) return console.log('changeWidget error: ' + err);
+            participant.on('signalingMessage', function(type, data, callback) {
+              if (callback) {
+                // An RPC request
+                switch (type) {
+                  case 'saveCurrentProgress':
+                    console.log('"saveCurrentProgress" RPC signal received from ' + participant.name);
+                    return callback(true, 'Successfully saved', {lives: getLives()});
+                  case 'incrementSomething':
+                    console.log('"incrementSomething" RPC signal received from ' + participant.name);
+                    var curValue = increment();
+                    return callback({count: curValue});
+                }
+              } else {
+                // A unidirectional message
+                console.log('Unidirectional message received of type ', type, ' and data ', data);
+              }
             });
 
-            participant.on('action', function (action) {
-              // The action object represents the participant's interaction.
-              // In this case it might be "button 'a' was pressed".
-              console.log('Widget action received: ', action);
-            });
+            setTimeout(function () {
+              // A unidirectional request
+              participant.sendSignal('hello', { text: 'Hi, there!' });
+            }, 6500);
+
+            setTimeout(function () {
+              // An RPC request that expects a response
+              participant.sendSignal('getDeviceTemperature', { metric: 'C' }, function (err, response) {
+                if (err) {
+                  console.log('Could not get device\'s temperature. Error: ' + err);
+                  return;
+                }
+
+                console.log('The device\'s temperature is: ' + response.data.temperature + ' °C');
+              });
+            }, 5500);
 
             participant.on('quit', function () {
               // You can also check for participant quit events
